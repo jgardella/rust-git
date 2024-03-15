@@ -6,6 +6,7 @@ Useful references related to Git, rust, etc.
 
 ### git
 - [git-scm docs](https://git-scm.com/doc)
+- [git source mirror](https://github.com/git/git)
 
 ### rust
 - [Rust book](https://doc.rust-lang.org/stable/book/)
