@@ -112,6 +112,104 @@ struct Cli {
     #[arg(long)]
     info_path: bool,
 
+    /// Pipe all output into less (or if set, $PAGER) if standard output is
+    /// a terminal. This overrides the pager.<cmd> configuration options
+    /// (see the "Configuration Mechanism" section below).
+    #[arg(short, long)]
+    paginate: bool,
+
+    /// Do not pipe Git output into a pager.
+    #[arg(short='P', long)]
+    no_pager: bool,
+
+    /// Set the path to the repository (".git" directory). This can also be
+    /// controlled by setting the GIT_DIR environment variable. It can be
+    /// an absolute path or relative path to current working directory.
+    ///
+    /// Specifying the location of the ".git" directory using this option
+    /// (or GIT_DIR environment variable) turns off the repository
+    /// discovery that tries to find a directory with ".git" subdirectory
+    /// (which is how the repository and the top-level of the working tree
+    /// are discovered), and tells Git that you are at the top level of the
+    /// working tree. If you are not at the top-level directory of the
+    /// working tree, you should tell Git where the top-level of the
+    /// working tree is, with the --work-tree=<path> option (or
+    /// GIT_WORK_TREE environment variable)
+    /// 
+    /// If you just want to run git as if it was started in <path> then use
+    /// git -C <path>.
+    #[arg(long, value_name="path")]
+    git_dir: Option<PathBuf>,
+
+    /// Set the path to the working tree. It can be an absolute path or a
+    /// path relative to the current working directory. This can also be
+    /// controlled by setting the GIT_WORK_TREE environment variable and
+    /// the core.worktree configuration variable (see core.worktree in git-
+    /// config(1) for a more detailed discussion).
+    #[arg(long, value_name="path")]
+    work_tree: Option<PathBuf>,
+
+    /// Set the Git namespace. See gitnamespaces(7) for more details.
+    /// Equivalent to setting the GIT_NAMESPACE environment variable.
+    #[arg(long, value_name="path")]
+    namespace: Option<PathBuf>,
+
+    /// Currently for internal use only. Set a prefix which gives a path
+    /// from above a repository down to its root. One use is to give
+    /// submodules context about the superproject that invoked it.
+    #[arg(long, value_name="path")]
+    super_perfix: Option<PathBuf>,
+    
+    /// Treat the repository as a bare repository. If GIT_DIR environment
+    /// is not set, it is set to the current working directory.
+    #[arg(long)]
+    bare: bool,
+
+    /// Do not use replacement refs to replace Git objects. See git-
+    /// replace(1) for more information.
+    #[arg(long)]
+    no_replace_objects: bool,
+
+    /// Treat pathspecs literally (i.e. no globbing, no pathspec magic).
+    /// This is equivalent to setting the GIT_LITERAL_PATHSPECS environment
+    /// variable to 1.
+    #[arg(long)]
+    literal_pathspecs: bool,
+
+    /// Add "glob" magic to all pathspec. This is equivalent to setting the
+    /// GIT_GLOB_PATHSPECS environment variable to 1. Disabling globbing on
+    /// individual pathspecs can be done using pathspec magic ":(literal)"
+    #[arg(long)]
+    glob_pathspecs: bool,
+
+    /// Add "literal" magic to all pathspec. This is equivalent to setting
+    /// the GIT_NOGLOB_PATHSPECS environment variable to 1. Enabling
+    /// globbing on individual pathspecs can be done using pathspec magic
+    /// ":(glob)"
+    #[arg(long)]
+    noglob_pathspecs: bool,
+
+    /// Add "icase" magic to all pathspec. This is equivalent to setting
+    /// the GIT_ICASE_PATHSPECS environment variable to 1.
+    #[arg(long)]
+    icase_pathspecs: bool,
+
+    /// Do not perform optional operations that require locks. This is
+    /// equivalent to setting the GIT_OPTIONAL_LOCKS to 0.
+    #[arg(long)]
+    no_optional_locks: bool,
+
+    /// List commands by group. This is an internal/experimental option and
+    /// may change or be removed in the future. Supported groups are:
+    /// builtins, parseopt (builtin commands that use parse-options), main
+    /// (all commands in libexec directory), others (all other commands in
+    /// $PATH that have git- prefix), list-<category> (see categories in
+    /// command-list.txt), nohelpers (exclude helper commands), alias and
+    /// config (retrieve command list from config variable
+    /// completion.commands)
+    #[arg(long, value_name="group")]
+    list_cmds: Vec<String>,
+
     #[command(subcommand)]
     command: Option<Commands>,
 }
