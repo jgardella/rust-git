@@ -216,6 +216,7 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Commands {
+    #[clap(alias="init-db")]
     Init(InitArgs)
 }
 
@@ -227,7 +228,9 @@ fn main() {
     // You can check for the existence of subcommands, and if found use their
     // matches just as you would the top level cmd
     match &cli.command {
-        Some(Commands::Init(_)) => {}
+        Some(Commands::Init(args)) => {
+            init::init::init_repository(args);
+        }
         None => {}
     }
 
