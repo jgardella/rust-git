@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use clap::Args;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 enum InitPermissionFlag {
     Umask,
     Group,
@@ -96,4 +96,48 @@ pub(crate) struct InitArgs {
 
     /// If you provide a directory, the command is run inside it. If this directory does not exist, it will be created.
     directory: Option<String>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_init_permission_should_parse_umask()
+    {
+        assert_eq!(parse_init_permission("umask"), Ok(InitPermissionFlag::Umask));
+        assert_eq!(parse_init_permission("false"), Ok(InitPermissionFlag::Umask));
+    }
+
+    #[test]
+    fn parse_init_permission_should_parse_group()
+    {
+        assert_eq!(parse_init_permission("group"), Ok(InitPermissionFlag::Group));
+        assert_eq!(parse_init_permission("true"), Ok(InitPermissionFlag::Group));
+    }
+
+    #[test]
+    fn parse_init_permission_should_parse_all()
+    {
+        assert_eq!(parse_init_permission("all"), Ok(InitPermissionFlag::All));
+        assert_eq!(parse_init_permission("world"), Ok(InitPermissionFlag::All));
+        assert_eq!(parse_init_permission("everybody"), Ok(InitPermissionFlag::All));
+    }
+
+    #[test]
+    fn parse_init_permission_should_parse_octal()
+    {
+        assert_eq!(parse_init_permission("0022"), Ok(InitPermissionFlag::Perm(0o0022)));
+    }
+
+    #[test]
+    fn parse_init_permission_should_error()
+    {
+        assert_eq!(parse_init_permission("notapermission"), Err(String::from("Invalid permission provided")));
+        assert_eq!(parse_init_permission("0abc"), Err(String::from("Invalid permission provided")));
+        assert_eq!(parse_init_permission("022"), Err(String::from("Invalid permission provided")));
+        assert_eq!(parse_init_permission("1022"), Err(String::from("Invalid permission provided")));
+        assert_eq!(parse_init_permission("02222"), Err(String::from("Invalid permission provided")));
+    }
+
 }
