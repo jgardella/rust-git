@@ -5,24 +5,26 @@ use super::cli::InitArgs;
 
 const DEFAULT_GIT_DIR: &str = ".git";
 
-fn create_dirs(root_dir: PathBuf) -> Result<PathBuf, RustGitError>
+fn create_dirs(root_dir: &PathBuf, bare: bool) -> Result<PathBuf, RustGitError>
 {
-    let git_dir = root_dir.join(DEFAULT_GIT_DIR).to_path_buf();
+    let mut dirs_to_create = Vec::<&PathBuf>::new();
 
-    if git_dir.exists() {
-        return Err(RustGitError::new(format!("{git_dir:#?} already exists")))
+    let mut git_dir = root_dir.to_path_buf();
+
+    if !bare {
+        git_dir.push(DEFAULT_GIT_DIR);
+
+        if git_dir.exists() {
+            return Err(RustGitError::new(format!("{git_dir:#?} already exists")))
+        }
+
+        dirs_to_create.push(&git_dir);
     }
 
     let objects_dir = git_dir.join("objects");
     let objects_info_dir = objects_dir.join("info");
     let objects_pack_dir = objects_dir.join("pack");
-
-    let dirs_to_create = vec![
-        &git_dir,
-        &objects_dir,
-        &objects_info_dir,
-        &objects_pack_dir
-    ];
+    dirs_to_create.extend([&objects_dir, &objects_info_dir, &objects_pack_dir]);
 
     // TODO: set directory permission based on InitArgs.shared and other configs
     let dir_builder = DirBuilder::new();
@@ -65,13 +67,10 @@ pub(crate) fn init_repository(args: &InitArgs) -> Result<PathBuf, RustGitError> 
             None => Path::new("./").to_path_buf()
         };
 
-    if args.bare {
-        // TODO: https://github.com/git/git/blob/master/builtin/init-db.c#L155
-    }
 
     if let Some(object_format) = &args.object_format {
 
     }
 
-    create_dirs(root_dir)
+    create_dirs(&root_dir, args.bare)
 }
