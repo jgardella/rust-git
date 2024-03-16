@@ -1,9 +1,11 @@
+mod error;
 mod init;
 
 use std::{path::PathBuf};
 
 use clap::{Parser, Subcommand};
 
+use error::RustGitError;
 use init::cli::InitArgs;
 
 fn parse_config_override(s: &str) -> Result<(String,String), String> {
@@ -211,7 +213,7 @@ struct Cli {
     list_cmds: Vec<String>,
 
     #[command(subcommand)]
-    command: Option<Commands>,
+    command: Commands,
 }
 
 #[derive(Debug, Subcommand)]
@@ -220,33 +222,20 @@ enum Commands {
     Init(InitArgs)
 }
 
-#[derive(Debug)]
-struct RustGitError {
-    error: String
-}
-
-
 fn main() -> Result<(), RustGitError> {
     let cli = Cli::parse();
 
     // You can check for the existence of subcommands, and if found use their
     // matches just as you would the top level cmd
     match &cli.command {
-        Some(Commands::Init(args)) => {
-            match init::init::init_repository(args) {
-                Ok(git_dir) => {
-                    let git_dir_display = git_dir.display();
-                    println!("Initialized empty Git repository in {git_dir_display}");
-                    Ok(())
-                }
-                Err(err) => {
-                    Err(RustGitError { error: err })
-                }
-
-            }
+        Commands::Init(args) => {
+            let git_dir = init::init::init_repository(args)?;
+            let git_dir_display = git_dir.display();
+            println!("Initialized empty Git repository in {git_dir_display}");
         }
-        None => Err(RustGitError { error: String::from("No command provided") })
     }
+
+    Ok(())
 }
 
 #[cfg(test)]
