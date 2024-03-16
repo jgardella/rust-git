@@ -1,14 +1,16 @@
 use std::{fs::{DirBuilder, self}, path::{PathBuf, Path}};
+use crate::RustGitError;
+
 use super::cli::InitArgs;
 
 const DEFAULT_GIT_DIR: &str = ".git";
 
-fn create_dirs(root_dir: PathBuf) -> Result<PathBuf, String>
+fn create_dirs(root_dir: PathBuf) -> Result<PathBuf, RustGitError>
 {
     let git_dir = root_dir.join(DEFAULT_GIT_DIR).to_path_buf();
 
     if git_dir.exists() {
-        return Err(format!("{git_dir:#?} already exists"))
+        return Err(RustGitError::new(format!("{git_dir:#?} already exists")))
     }
 
     let objects_dir = git_dir.join("objects");
@@ -34,12 +36,12 @@ fn create_dirs(root_dir: PathBuf) -> Result<PathBuf, String>
     return 
         dir_create_result
         .map(|_| fs::canonicalize(git_dir).unwrap())
-        .map_err(|err| err.to_string());
+        .map_err(|err| RustGitError::new(err.to_string()));
 }
 
 
 
-pub(crate) fn init_repository(args: &InitArgs) -> Result<PathBuf, String> // Not sure yet what we should return. Git returns an int.
+pub(crate) fn init_repository(args: &InitArgs) -> Result<PathBuf, RustGitError> // Not sure yet what we should return. Git returns an int.
 {
     // Real implementation this this is much more involved, but let's keep it simple for now.
     // https://github.com/git/git/blob/master/builtin/init-db.c#L112-L118
@@ -56,7 +58,7 @@ pub(crate) fn init_repository(args: &InitArgs) -> Result<PathBuf, String> // Not
                 dir_builder.recursive(true);
 
                 dir_builder.create(directory)
-                .map_err(|_| format!("Failed to create directory: {directory}"))?;
+                .map_err(|_| RustGitError::new(format!("Failed to create directory: {directory}")))?;
 
                 Path::new(&directory).to_path_buf()
             }
