@@ -46,7 +46,7 @@ pub(crate) struct InitArgs {
     quiet: bool,
 
     /// Create a bare repository. If GIT_DIR environment is not set, it is set to the current working directory.
-    #[arg(long)]
+    #[arg(long, conflicts_with="separate_git_dir")]
     bare: bool,
 
     /// Specify the directory from which templates will be used. (See the "TEMPLATE DIRECTORY" section below.)
@@ -57,7 +57,7 @@ pub(crate) struct InitArgs {
     /// filesystem-agnostic Git symbolic link to the repository.
     ///
     /// If this is reinitialization, the repository will be moved to the specified path.
-    #[arg(long, value_name="git-dir")]
+    #[arg(long, value_name="git-dir", conflicts_with="bare")]
     separate_git_dir: Option<PathBuf>,
 
     /// Specify the given object format (hash algorithm) for the repository. The valid values are sha1 and (if enabled) sha256. sha1 is the default.
