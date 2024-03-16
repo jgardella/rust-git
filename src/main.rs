@@ -90,6 +90,28 @@ struct Cli {
     #[arg(long, value_parser=parse_config_env)]
     config_env: Vec<(String, String)>,
 
+    /// Path to wherever your core Git programs are installed. This can
+    /// also be controlled by setting the GIT_EXEC_PATH environment
+    /// variable. If no path is given, git will print the current setting
+    /// and then exit.
+    #[arg(long, value_name="path")]
+    exec_path: Option<PathBuf>,
+
+    /// Print the path, without trailing slash, where Git’s HTML
+    /// documentation is installed and exit.
+    #[arg(long)]
+    html_path: bool,
+
+    /// Print the manpath (see man(1)) for the man pages for this version
+    /// of Git and exit.
+    #[arg(long)]
+    man_path: bool,
+
+    /// Print the path where the Info files documenting this version of Git
+    /// are installed and exit.
+    #[arg(long)]
+    info_path: bool,
+
     #[command(subcommand)]
     command: Option<Commands>,
 }
