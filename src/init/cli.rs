@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use clap::Args;
 
 #[derive(Clone, Debug, PartialEq)]
-enum InitPermissionFlag {
+pub(crate) enum InitPermissionFlag {
     Umask,
     Group,
     All,

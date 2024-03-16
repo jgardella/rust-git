@@ -2,9 +2,24 @@
 mod integration_tests {
     use std::fs;
 
-    use assert_fs::prelude::*;
+    use assert_fs::{prelude::*, fixture::ChildPath};
     use predicates::prelude::*;
     use assert_cmd::{Command, prelude::OutputAssertExt};
+
+    fn assert_git_init_files(git_dir: &ChildPath) {
+        git_dir.assert(predicate::path::exists());
+
+        let objects_dir = git_dir.child("objects");
+        objects_dir.assert(predicate::path::exists());
+
+        objects_dir
+            .child("info")
+            .assert(predicate::path::exists());
+
+        objects_dir
+            .child("pack")
+            .assert(predicate::path::exists());
+    }
 
     #[test]
     fn should_create_expected_dirs() {
@@ -25,18 +40,7 @@ mod integration_tests {
             .success()
             .stdout(format!("Initialized empty Git repository in {git_dir_display}\n"));
 
-        git_dir.assert(predicate::path::exists());
-
-        let objects_dir = git_dir.child("objects");
-        objects_dir.assert(predicate::path::exists());
-
-        objects_dir
-            .child("info")
-            .assert(predicate::path::exists());
-
-        objects_dir
-            .child("pack")
-            .assert(predicate::path::exists());
+        assert_git_init_files(&git_dir);
     }
 
     #[test]
@@ -61,18 +65,7 @@ mod integration_tests {
             .stdout(format!("Initialized empty Git repository in {git_dir_display}\n"));
 
         project_dir.assert(predicate::path::exists());
-        git_dir.assert(predicate::path::exists());
-
-        let objects_dir = git_dir.child("objects");
-        objects_dir.assert(predicate::path::exists());
-
-        objects_dir
-            .child("info")
-            .assert(predicate::path::exists());
-
-        objects_dir
-            .child("pack")
-            .assert(predicate::path::exists());
+        assert_git_init_files(&git_dir);
     }
 
     #[test]
@@ -97,18 +90,7 @@ mod integration_tests {
             .stdout(format!("Initialized empty Git repository in {git_dir_display}\n"));
 
         project_dir.assert(predicate::path::exists());
-        git_dir.assert(predicate::path::exists());
-
-        let objects_dir = git_dir.child("objects");
-        objects_dir.assert(predicate::path::exists());
-
-        objects_dir
-            .child("info")
-            .assert(predicate::path::exists());
-
-        objects_dir
-            .child("pack")
-            .assert(predicate::path::exists());
+        assert_git_init_files(&git_dir);
     }
 
     #[test]
@@ -134,20 +116,30 @@ mod integration_tests {
             .stdout(format!("Initialized empty Git repository in {git_dir_display}\n"));
 
         project_dir.assert(predicate::path::exists());
-        git_dir.assert(predicate::path::exists());
-
-        let objects_dir = git_dir.child("objects");
-        objects_dir.assert(predicate::path::exists());
-
-        objects_dir
-            .child("info")
-            .assert(predicate::path::exists());
-
-        objects_dir
-            .child("pack")
-            .assert(predicate::path::exists());
+        assert_git_init_files(&git_dir);
     }
 
+    #[test]
+    fn should_create_expected_dirs_with_bare() {
+        let temp_dir = assert_fs::TempDir::new().unwrap();
+
+        let cmd = 
+            Command::cargo_bin("rust-git")
+            .unwrap()
+            .arg("init")
+            .arg("--bare")
+            .current_dir(temp_dir.path())
+            .unwrap();
+
+        let canonical_git_dir = fs::canonicalize(&temp_dir).unwrap();
+        let git_dir_display = canonical_git_dir.display();
+
+        cmd.assert()
+            .success()
+            .stdout(format!("Initialized empty Git repository in {git_dir_display}\n"));
+
+        assert_git_init_files(&temp_dir.child("."));
+    }
 
     #[test]
     fn should_fail_if_already_exists() {
