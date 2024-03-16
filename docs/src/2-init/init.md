@@ -44,3 +44,7 @@ DESCRIPTION
        This is a synonym for git-init(1). Please refer to the documentation of that command.
 
 ```
+
+## Testing
+We can set up the [assert_cmd](https://docs.rs/assert_cmd/latest/assert_cmd/) crate to more easily run "integration tests" against our binary, and [assert_fs](https://docs.rs/assert_fs/latest/assert_fs/)
+to help with testing with the file system.

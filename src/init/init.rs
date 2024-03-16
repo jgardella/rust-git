@@ -1,12 +1,12 @@
-use std::{fs::DirBuilder, path::Path};
+use std::{fs::{DirBuilder, self}, path::{PathBuf, Path}};
 use super::cli::InitArgs;
 
 const DEFAULT_GIT_DIR: &str = ".git";
 
-fn create_dirs(_: &InitArgs) -> Result<(), String>
+fn create_dirs(_: &InitArgs) -> Result<PathBuf, String>
 {
     // TODO: handle config and args
-    let git_dir = Path::new(DEFAULT_GIT_DIR);
+    let git_dir = Path::new(DEFAULT_GIT_DIR).to_path_buf();
 
     if git_dir.exists() {
         return Err(format!("{git_dir:#?} already exists"))
@@ -17,10 +17,10 @@ fn create_dirs(_: &InitArgs) -> Result<(), String>
     let objects_pack_dir = objects_dir.join("pack");
 
     let dirs_to_create = vec![
-        git_dir,
-        objects_dir.as_path(),
-        objects_info_dir.as_path(),
-        objects_pack_dir.as_path()
+        &git_dir,
+        &objects_dir,
+        &objects_info_dir,
+        &objects_pack_dir
     ];
 
     // TODO: set directory permission based on InitArgs.shared and other configs
@@ -34,12 +34,12 @@ fn create_dirs(_: &InitArgs) -> Result<(), String>
 
     return 
         dir_create_result
-        .map(|_| ())
+        .map(|_| fs::canonicalize(git_dir).unwrap())
         .map_err(|err| err.to_string());
 }
 
 
-pub(crate) fn init_repository(args: &InitArgs) -> Result<(), String> // Not sure yet what we should return. Git returns an int.
+pub(crate) fn init_repository(args: &InitArgs) -> Result<PathBuf, String> // Not sure yet what we should return. Git returns an int.
 {
     create_dirs(args)
 }
