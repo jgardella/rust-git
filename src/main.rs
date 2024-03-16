@@ -1,7 +1,8 @@
 mod init;
+
 use clap::{Parser, Subcommand};
 
-use crate::init::cli::InitArgs;
+use init::cli::InitArgs;
 
 #[derive(Parser)]
 #[command(version)]
