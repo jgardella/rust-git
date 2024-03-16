@@ -1,6 +1,6 @@
 mod init;
 
-use std::path::PathBuf;
+use std::{path::PathBuf};
 
 use clap::{Parser, Subcommand};
 
@@ -220,8 +220,13 @@ enum Commands {
     Init(InitArgs)
 }
 
+#[derive(Debug)]
+struct RustGitError {
+    error: String
+}
 
-fn main() {
+
+fn main() -> Result<(), RustGitError> {
     let cli = Cli::parse();
 
     // You can check for the existence of subcommands, and if found use their
@@ -232,15 +237,16 @@ fn main() {
                 Ok(git_dir) => {
                     let git_dir_display = git_dir.display();
                     println!("Initialized empty Git repository in {git_dir_display}");
+                    Ok(())
                 }
-                Err(err) => eprintln!("{err}")
+                Err(err) => {
+                    Err(RustGitError { error: err })
+                }
 
             }
         }
-        None => {}
+        None => Err(RustGitError { error: String::from("No command provided") })
     }
-
-    // Continued program logic goes here...
 }
 
 #[cfg(test)]

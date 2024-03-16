@@ -41,4 +41,16 @@ mod integration_tests {
             .child("pack")
             .assert(predicate::path::exists());
     }
+
+    #[test]
+    fn should_fail_if_already_exists() {
+        let temp_dir = assert_fs::TempDir::new().unwrap();
+        std::fs::create_dir(temp_dir.path().join(".git")).unwrap();
+
+        Command::cargo_bin("rust-git")
+        .unwrap()
+        .arg("init")
+        .assert()
+        .failure();
+    }
 }
