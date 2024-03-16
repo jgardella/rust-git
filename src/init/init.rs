@@ -3,10 +3,9 @@ use super::cli::InitArgs;
 
 const DEFAULT_GIT_DIR: &str = ".git";
 
-fn create_dirs(_: &InitArgs) -> Result<PathBuf, String>
+fn create_dirs(root_dir: PathBuf) -> Result<PathBuf, String>
 {
-    // TODO: handle config and args
-    let git_dir = Path::new(DEFAULT_GIT_DIR).to_path_buf();
+    let git_dir = root_dir.join(DEFAULT_GIT_DIR).to_path_buf();
 
     if git_dir.exists() {
         return Err(format!("{git_dir:#?} already exists"))
@@ -39,7 +38,38 @@ fn create_dirs(_: &InitArgs) -> Result<PathBuf, String>
 }
 
 
+
 pub(crate) fn init_repository(args: &InitArgs) -> Result<PathBuf, String> // Not sure yet what we should return. Git returns an int.
 {
-    create_dirs(args)
+    // Real implementation this this is much more involved, but let's keep it simple for now.
+    // https://github.com/git/git/blob/master/builtin/init-db.c#L112-L118
+    let real_git_dir = args.separate_git_dir.as_ref().map(fs::canonicalize);
+    let template_dir = args.separate_git_dir.as_ref().map(fs::canonicalize);
+
+    let root_dir =
+        match &args.directory {
+            Some(directory) => {
+                // Creation of the directory is also more complex, but we keep it simple.
+                // Real git does something special with "creating leading directories":
+                // https://github.com/git/git/blob/master/builtin/init-db.c#L133
+                let mut dir_builder = DirBuilder::new();
+                dir_builder.recursive(true);
+
+                dir_builder.create(directory)
+                .map_err(|_| format!("Failed to create directory: {directory}"))?;
+
+                Path::new(&directory).to_path_buf()
+            }
+            None => Path::new("./").to_path_buf()
+        };
+
+    if args.bare {
+        // TODO: https://github.com/git/git/blob/master/builtin/init-db.c#L155
+    }
+
+    if let Some(object_format) = &args.object_format {
+
+    }
+
+    create_dirs(root_dir)
 }
