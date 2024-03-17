@@ -1,6 +1,12 @@
 use std::path::PathBuf;
 
-use clap::Args;
+use clap::{Args, ValueEnum};
+
+#[derive(Clone, Debug, PartialEq, ValueEnum)]
+pub(crate) enum HashAlgorithm {
+    Sha1,
+    Sha256
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) enum InitPermissionFlag {
@@ -65,8 +71,8 @@ pub(crate) struct InitArgs {
     /// THIS OPTION IS EXPERIMENTAL! SHA-256 support is experimental and still in an early stage. A SHA-256 repository will in general not be able to share work with "regular" SHA-1
     /// repositories. It should be assumed that, e.g., Git internal file formats in relation to SHA-256 repositories may change in backwards-incompatible ways. Only use --object-format=sha256
     /// for testing purposes.
-    #[arg(long, value_name="format")]
-    pub object_format: Option<String>,
+    #[arg(long, value_name="format", default_value="sha1")]
+    pub object_format: HashAlgorithm,
 
     /// Use the specified name for the initial branch in the newly created repository. If not specified, fall back to the default name (currently master, but this is subject to change in the
     /// future; the name can be customized via the init.defaultBranch configuration variable).

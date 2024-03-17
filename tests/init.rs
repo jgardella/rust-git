@@ -148,7 +148,61 @@ mod integration_tests {
 
         Command::cargo_bin("rust-git")
         .unwrap()
+        .current_dir(temp_dir.path())
         .arg("init")
+        .assert()
+        .failure();
+    }
+
+    #[test]
+    fn should_fail_if_separate_git_repository_provided() {
+        let temp_dir = assert_fs::TempDir::new().unwrap();
+
+        Command::cargo_bin("rust-git")
+        .unwrap()
+        .current_dir(temp_dir.path())
+        .arg("init")
+        .arg("--separate-git-repository=../test")
+        .assert()
+        .failure();
+    }
+
+    #[test]
+    fn should_fail_if_template_provided() {
+        let temp_dir = assert_fs::TempDir::new().unwrap();
+
+        Command::cargo_bin("rust-git")
+        .unwrap()
+        .current_dir(temp_dir.path())
+        .arg("init")
+        .arg("--template=test")
+        .assert()
+        .failure();
+    }
+
+    #[test]
+    fn should_fail_if_work_tree_set_without_git_dir() {
+        let temp_dir = assert_fs::TempDir::new().unwrap();
+
+        Command::cargo_bin("rust-git")
+        .unwrap()
+        .current_dir(temp_dir.path())
+        .arg("--work-tree ./test")
+        .arg("init")
+        .assert()
+        .failure();
+    }
+
+    #[test]
+    fn should_fail_if_bare_and_work_tree_set() {
+        let temp_dir = assert_fs::TempDir::new().unwrap();
+
+        Command::cargo_bin("rust-git")
+        .unwrap()
+        .current_dir(temp_dir.path())
+        .arg("--work-tree test")
+        .arg("init")
+        .arg("--bare")
         .assert()
         .failure();
     }
