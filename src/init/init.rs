@@ -1,4 +1,4 @@
-use std::{fs::{DirBuilder, self}, path::{PathBuf, Path}};
+use std::{fs::{DirBuilder, self, File}, path::{PathBuf, Path}, io::Write};
 use crate::RustGitError;
 
 use super::cli::{InitArgs, InitPermissionFlag};
@@ -23,17 +23,21 @@ impl InitCommand {
     }
 }
 
-/// Creates basic git repository folder structure:
+/// Creates basic git repository folder structure and default files:
 /// .git
+///     - HEAD (current repo head)
+///     - config (repo-level config)
+///     - description (repo description)
 ///     - objects
 ///         - info
 ///         - pack
 ///     - info
-///     - hooks
+///         - exclude
+///     - hooks (directory containing git hooks, will keep it empty until hooks are implemented)
 ///     - refs
 ///         - heads
 ///         - tags
-fn create_dirs(cmd: &InitCommand, project_dir: &PathBuf, git_dir: &PathBuf) -> Result<PathBuf, RustGitError>
+fn create_git_repo(cmd: &InitCommand, project_dir: &PathBuf, git_dir: &PathBuf) -> Result<PathBuf, RustGitError>
 {
     let mut git_repo_dir = project_dir.to_path_buf();
 
@@ -66,7 +70,20 @@ fn create_dirs(cmd: &InitCommand, project_dir: &PathBuf, git_dir: &PathBuf) -> R
     dir_builder.create(refs_dir)?;
     dir_builder.create(refs_heads_dir)?;
     dir_builder.create(refs_tags_dir)?;
-        
+
+    let head_file_path = git_repo_dir.join("HEAD");
+    let mut head_file = File::create(head_file_path)?;
+
+    // Real Git has some validation on the ref format, omitted for now:
+    // https://github.com/git/git/blob/master/setup.c#L1952
+
+    // There's also a more complex implementation of working with the HEAD file,
+    // for now we'll keep it simple and re-visit when we start doing actual operations on it.
+    // https://github.com/git/git/blob/master/refs/reftable-backend.c#L2230
+    let initial_branch_ref = format!("ref: refs/heads/{}", &cmd.args.initial_branch);
+
+    head_file.write_all(initial_branch_ref.as_bytes())?;
+
     Ok(fs::canonicalize(git_repo_dir)?)
 }
 
@@ -118,5 +135,5 @@ pub(crate) fn init_repository(cmd: &InitCommand) -> Result<PathBuf, RustGitError
     let default_git_dir = &PathBuf::from(DEFAULT_GIT_DIR);
     let git_dir = cmd.git_dir.as_ref().unwrap_or(default_git_dir);
 
-    create_dirs(&cmd, &root_dir, &git_dir)
+    create_git_repo(&cmd, &root_dir, &git_dir)
 }
