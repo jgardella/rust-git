@@ -23,11 +23,21 @@ impl InitCommand {
     }
 }
 
+/// Creates basic git repository folder structure:
+/// .git
+///     - objects
+///         - info
+///         - pack
+///     - info
+///     - hooks
+///     - refs
+///         - heads
+///         - tags
 fn create_dirs(cmd: &InitCommand, project_dir: &PathBuf, git_dir: &PathBuf) -> Result<PathBuf, RustGitError>
 {
-    let mut dirs_to_create = Vec::<&PathBuf>::new();
-
     let mut git_repo_dir = project_dir.to_path_buf();
+
+    let dir_builder = DirBuilder::new();
 
     if !cmd.args.bare {
         git_repo_dir.push(git_dir);
@@ -36,31 +46,32 @@ fn create_dirs(cmd: &InitCommand, project_dir: &PathBuf, git_dir: &PathBuf) -> R
             return Err(RustGitError::new(format!("{git_repo_dir:#?} already exists")))
         }
 
-        dirs_to_create.push(&git_repo_dir);
+        dir_builder.create(&git_repo_dir)?;
     }
 
-    let objects_dir = git_dir.join("objects");
+    let objects_dir = git_repo_dir.join("objects");
     let objects_info_dir = objects_dir.join("info");
     let objects_pack_dir = objects_dir.join("pack");
-    dirs_to_create.extend([&objects_dir, &objects_info_dir, &objects_pack_dir]);
+    let info_dir = git_repo_dir.join("info");
+    let hooks_dir = git_repo_dir.join("hooks");
+    let refs_dir = git_repo_dir.join("refs");
+    let refs_heads_dir = refs_dir.join("heads");
+    let refs_tags_dir = refs_dir.join("tags");
 
-    // TODO: set directory permission based on InitArgs.shared and other configs
-    let dir_builder = DirBuilder::new();
-
-    let dir_create_result: Result<Vec<()>, _> = 
-        dirs_to_create
-        .iter()
-        .map(|path| dir_builder.create(path))
-        .collect();
-
-    return 
-        dir_create_result
-        .map(|_| fs::canonicalize(git_dir).unwrap())
-        .map_err(|err| RustGitError::new(err.to_string()));
+    dir_builder.create(objects_dir)?;
+    dir_builder.create(objects_info_dir)?;
+    dir_builder.create(objects_pack_dir)?;
+    dir_builder.create(info_dir)?;
+    dir_builder.create(hooks_dir)?;
+    dir_builder.create(refs_dir)?;
+    dir_builder.create(refs_heads_dir)?;
+    dir_builder.create(refs_tags_dir)?;
+        
+    Ok(fs::canonicalize(git_repo_dir)?)
 }
 
 
-pub(crate) fn init_repository(cmd: &InitCommand) -> Result<PathBuf, RustGitError> // Not sure yet what we should return. Git returns an int.
+pub(crate) fn init_repository(cmd: &InitCommand) -> Result<PathBuf, RustGitError>
 {
     // Create base directory, if specified.
     let root_dir =
