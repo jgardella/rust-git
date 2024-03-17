@@ -1,3 +1,4 @@
+mod command;
 mod error;
 mod init;
 
@@ -5,6 +6,7 @@ use std::{path::PathBuf};
 
 use clap::{Parser, Subcommand};
 
+use command::Command;
 use error::RustGitError;
 use init::cli::InitArgs;
 
@@ -213,23 +215,22 @@ struct Cli {
     list_cmds: Vec<String>,
 
     #[command(subcommand)]
-    command: Commands,
+    command: CliCommand,
 }
 
 #[derive(Debug, Subcommand)]
-enum Commands {
+enum CliCommand {
     #[clap(alias="init-db")]
     Init(InitArgs)
 }
 
+
 fn main() -> Result<(), RustGitError> {
     let cli = Cli::parse();
 
-    // You can check for the existence of subcommands, and if found use their
-    // matches just as you would the top level cmd
-    match &cli.command {
-        Commands::Init(args) => {
-            let git_dir = init::init::init_repository(args)?;
+    match &cli.into() {
+        Command::Init(cmd) => {
+            let git_dir = init::init::init_repository(cmd)?;
             let git_dir_display = git_dir.display();
             println!("Initialized empty Git repository in {git_dir_display}");
         }

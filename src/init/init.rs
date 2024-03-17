@@ -5,6 +5,24 @@ use super::cli::InitArgs;
 
 const DEFAULT_GIT_DIR: &str = ".git";
 
+pub(crate) struct InitCommand {
+    args: InitArgs,
+
+    git_dir: Option<PathBuf>,
+
+    git_work_tree: Option<PathBuf>
+}
+
+impl InitCommand {
+    pub fn new(args: InitArgs, git_dir: Option<PathBuf>, git_work_tree: Option<PathBuf>) -> InitCommand {
+        InitCommand {
+            args,
+            git_dir,
+            git_work_tree,
+        }
+    }
+}
+
 fn create_dirs(root_dir: &PathBuf, bare: bool) -> Result<PathBuf, RustGitError>
 {
     let mut dirs_to_create = Vec::<&PathBuf>::new();
@@ -42,16 +60,11 @@ fn create_dirs(root_dir: &PathBuf, bare: bool) -> Result<PathBuf, RustGitError>
 }
 
 
-
-pub(crate) fn init_repository(args: &InitArgs) -> Result<PathBuf, RustGitError> // Not sure yet what we should return. Git returns an int.
+pub(crate) fn init_repository(cmd: &InitCommand) -> Result<PathBuf, RustGitError> // Not sure yet what we should return. Git returns an int.
 {
-    // Real implementation this this is much more involved, but let's keep it simple for now.
-    // https://github.com/git/git/blob/master/builtin/init-db.c#L112-L118
-    let real_git_dir = args.separate_git_dir.as_ref().map(fs::canonicalize);
-    let template_dir = args.separate_git_dir.as_ref().map(fs::canonicalize);
-
+    // Create base directory, if specified.
     let root_dir =
-        match &args.directory {
+        match &cmd.args.directory {
             Some(directory) => {
                 // Creation of the directory is also more complex, but we keep it simple.
                 // Real git does something special with "creating leading directories":
@@ -67,10 +80,25 @@ pub(crate) fn init_repository(args: &InitArgs) -> Result<PathBuf, RustGitError> 
             None => Path::new("./").to_path_buf()
         };
 
+    // Real Git has some logic to guess if the repository is bare or not, we omit that for simplicity:
+    // https://github.com/git/git/blob/master/builtin/init-db.c#L218-L219
 
-    if let Some(object_format) = &args.object_format {
-
+    // Omitting implementaion of --separate-git-dir and --template-dir for now, for simplicity
+    if let Some(_) = cmd.args.separate_git_dir {
+        return Err(RustGitError::new(String::from("--separate-git-dir not supported")));
     }
 
-    create_dirs(&root_dir, args.bare)
+    if let Some(_) = cmd.args.template {
+        return Err(RustGitError::new(String::from("--template not supported")));
+    }
+
+    if (cmd.git_dir.is_none() || cmd.args.bare) && cmd.git_work_tree.is_some() {
+        return Err(RustGitError::new(String::from("work-tree can't be set without specifying git-dir")));
+    }
+
+    if cmd.args.bare && cmd.args.separate_git_dir.is_some() {
+        return Err(RustGitError::new(String::from("--separate-git-dir incompatible with bare repository")));
+    }
+
+    create_dirs(&root_dir, cmd.args.bare)
 }
