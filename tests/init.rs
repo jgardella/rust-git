@@ -142,6 +142,29 @@ mod integration_tests {
     }
 
     #[test]
+    fn should_create_expected_dirs_with_custom_git_dir() {
+        let temp_dir = assert_fs::TempDir::new().unwrap();
+        let custom_git_dir = temp_dir.child(".my-custom-git-dir");
+
+        let cmd = 
+            Command::cargo_bin("rust-git")
+            .unwrap()
+            .arg("--git-dir=.my-custom-git-dir")
+            .arg("init")
+            .current_dir(temp_dir.path())
+            .unwrap();
+
+        let canonical_git_dir = fs::canonicalize(&custom_git_dir).unwrap();
+        let git_dir_display = canonical_git_dir.display();
+
+        cmd.assert()
+            .success()
+            .stdout(format!("Initialized empty Git repository in {git_dir_display}\n"));
+
+        assert_git_init_files(&custom_git_dir);
+    }
+
+    #[test]
     fn should_fail_if_already_exists() {
         let temp_dir = assert_fs::TempDir::new().unwrap();
         std::fs::create_dir(temp_dir.path().join(".git")).unwrap();
@@ -176,6 +199,19 @@ mod integration_tests {
         .current_dir(temp_dir.path())
         .arg("init")
         .arg("--template=test")
+        .assert()
+        .failure();
+    }
+
+    #[test]
+    fn should_fail_if_shared_provided_with_non_default() {
+        let temp_dir = assert_fs::TempDir::new().unwrap();
+
+        Command::cargo_bin("rust-git")
+        .unwrap()
+        .current_dir(temp_dir.path())
+        .arg("init")
+        .arg("--shared=umask")
         .assert()
         .failure();
     }

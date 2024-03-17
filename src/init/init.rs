@@ -1,7 +1,7 @@
 use std::{fs::{DirBuilder, self}, path::{PathBuf, Path}};
 use crate::RustGitError;
 
-use super::cli::InitArgs;
+use super::cli::{InitArgs, InitPermissionFlag};
 
 const DEFAULT_GIT_DIR: &str = ".git";
 
@@ -23,20 +23,20 @@ impl InitCommand {
     }
 }
 
-fn create_dirs(root_dir: &PathBuf, bare: bool) -> Result<PathBuf, RustGitError>
+fn create_dirs(cmd: &InitCommand, project_dir: &PathBuf, git_dir: &PathBuf) -> Result<PathBuf, RustGitError>
 {
     let mut dirs_to_create = Vec::<&PathBuf>::new();
 
-    let mut git_dir = root_dir.to_path_buf();
+    let mut git_repo_dir = project_dir.to_path_buf();
 
-    if !bare {
-        git_dir.push(DEFAULT_GIT_DIR);
+    if !cmd.args.bare {
+        git_repo_dir.push(git_dir);
 
-        if git_dir.exists() {
-            return Err(RustGitError::new(format!("{git_dir:#?} already exists")))
+        if git_repo_dir.exists() {
+            return Err(RustGitError::new(format!("{git_repo_dir:#?} already exists")))
         }
 
-        dirs_to_create.push(&git_dir);
+        dirs_to_create.push(&git_repo_dir);
     }
 
     let objects_dir = git_dir.join("objects");
@@ -83,13 +83,17 @@ pub(crate) fn init_repository(cmd: &InitCommand) -> Result<PathBuf, RustGitError
     // Real Git has some logic to guess if the repository is bare or not, we omit that for simplicity:
     // https://github.com/git/git/blob/master/builtin/init-db.c#L218-L219
 
-    // Omitting implementaion of --separate-git-dir and --template-dir for now, for simplicity
+    // Omitting implementaion of --separate-git-dir, --template-dir, and --shared for now, for simplicity
     if let Some(_) = cmd.args.separate_git_dir {
         return Err(RustGitError::new(String::from("--separate-git-dir not supported")));
     }
 
     if let Some(_) = cmd.args.template {
         return Err(RustGitError::new(String::from("--template not supported")));
+    }
+
+    if cmd.args.shared != InitPermissionFlag::Group {
+        return Err(RustGitError::new(String::from("--shared not supported")));
     }
 
     if (cmd.git_dir.is_none() || cmd.args.bare) && cmd.git_work_tree.is_some() {
@@ -100,5 +104,8 @@ pub(crate) fn init_repository(cmd: &InitCommand) -> Result<PathBuf, RustGitError
         return Err(RustGitError::new(String::from("--separate-git-dir incompatible with bare repository")));
     }
 
-    create_dirs(&root_dir, cmd.args.bare)
+    let default_git_dir = &PathBuf::from(DEFAULT_GIT_DIR);
+    let git_dir = cmd.git_dir.as_ref().unwrap_or(default_git_dir);
+
+    create_dirs(&cmd, &root_dir, &git_dir)
 }

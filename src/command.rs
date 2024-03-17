@@ -15,6 +15,5 @@ impl From<Cli> for Command {
             CliCommand::Init(args) => 
                 Command::Init(InitCommand::new(args, value.git_dir, value.work_tree))
         }
-        
     }
 }
