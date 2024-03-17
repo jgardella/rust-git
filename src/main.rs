@@ -96,7 +96,7 @@ struct Cli {
     /// also be controlled by setting the GIT_EXEC_PATH environment
     /// variable. If no path is given, git will print the current setting
     /// and then exit.
-    #[arg(long, value_name="path")]
+    #[arg(long, value_name="path", env="GIT_EXEC_PATH")]
     exec_path: Option<PathBuf>,
 
     /// Print the path, without trailing slash, where Git’s HTML
@@ -140,7 +140,7 @@ struct Cli {
     /// 
     /// If you just want to run git as if it was started in <path> then use
     /// git -C <path>.
-    #[arg(long, value_name="path")]
+    #[arg(long, value_name="path", env="GIT_DIR")]
     git_dir: Option<PathBuf>,
 
     /// Set the path to the working tree. It can be an absolute path or a
@@ -148,12 +148,12 @@ struct Cli {
     /// controlled by setting the GIT_WORK_TREE environment variable and
     /// the core.worktree configuration variable (see core.worktree in git-
     /// config(1) for a more detailed discussion).
-    #[arg(long, value_name="path")]
+    #[arg(long, value_name="path", env="GIT_WORK_TREE")]
     work_tree: Option<PathBuf>,
 
     /// Set the Git namespace. See gitnamespaces(7) for more details.
     /// Equivalent to setting the GIT_NAMESPACE environment variable.
-    #[arg(long, value_name="path")]
+    #[arg(long, value_name="path", env="GIT_NAMESPACE")]
     namespace: Option<PathBuf>,
 
     /// Currently for internal use only. Set a prefix which gives a path
@@ -175,30 +175,30 @@ struct Cli {
     /// Treat pathspecs literally (i.e. no globbing, no pathspec magic).
     /// This is equivalent to setting the GIT_LITERAL_PATHSPECS environment
     /// variable to 1.
-    #[arg(long)]
+    #[arg(long, env="GIT_LITERAL_PATHSPECS")]
     literal_pathspecs: bool,
 
     /// Add "glob" magic to all pathspec. This is equivalent to setting the
     /// GIT_GLOB_PATHSPECS environment variable to 1. Disabling globbing on
     /// individual pathspecs can be done using pathspec magic ":(literal)"
-    #[arg(long)]
+    #[arg(long, env="GIT_GLOB_PATHSPECS")]
     glob_pathspecs: bool,
 
     /// Add "literal" magic to all pathspec. This is equivalent to setting
     /// the GIT_NOGLOB_PATHSPECS environment variable to 1. Enabling
     /// globbing on individual pathspecs can be done using pathspec magic
     /// ":(glob)"
-    #[arg(long)]
+    #[arg(long, env="GIT_NOGLOB_PATHSPECS")]
     noglob_pathspecs: bool,
 
     /// Add "icase" magic to all pathspec. This is equivalent to setting
     /// the GIT_ICASE_PATHSPECS environment variable to 1.
-    #[arg(long)]
+    #[arg(long, env="GIT_ICASE_PATHSPECS")]
     icase_pathspecs: bool,
 
     /// Do not perform optional operations that require locks. This is
     /// equivalent to setting the GIT_OPTIONAL_LOCKS to 0.
-    #[arg(long)]
+    #[arg(long, env="GIT_OPTIONAL_LOCKS")]
     no_optional_locks: bool,
 
     /// List commands by group. This is an internal/experimental option and
