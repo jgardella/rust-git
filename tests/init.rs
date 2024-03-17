@@ -19,6 +19,24 @@ mod integration_tests {
         objects_dir
             .child("pack")
             .assert(predicate::path::exists());
+
+        let info_dir = git_dir.child("info");
+        info_dir.assert(predicate::path::exists());
+
+        let hooks_dir = git_dir.child("hooks");
+        hooks_dir.assert(predicate::path::exists());
+
+        let refs_dir = git_dir.child("refs");
+        refs_dir.assert(predicate::path::exists());
+
+        refs_dir
+            .child("heads")
+            .assert(predicate::path::exists());
+
+        refs_dir
+            .child("tags")
+            .assert(predicate::path::exists());
+
     }
 
     #[test]
