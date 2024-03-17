@@ -76,8 +76,8 @@ pub(crate) struct InitArgs {
 
     /// Use the specified name for the initial branch in the newly created repository. If not specified, fall back to the default name (currently master, but this is subject to change in the
     /// future; the name can be customized via the init.defaultBranch configuration variable).
-    #[arg(short='b', long, value_name="branch-name")]
-    pub initial_branch: Option<String>,
+    #[arg(short='b', long, value_name="branch-name", default_value="main")]
+    pub initial_branch: String,
 
     /// Specify that the Git repository is to be shared amongst several users. This allows users belonging to the same group to push into that repository. When specified, the config variable
     /// "core.sharedRepository" is set so that files and directories under $GIT_DIR are created with the requested permissions. When not specified, Git will use permissions reported by umask(2).
