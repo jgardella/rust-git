@@ -8,6 +8,15 @@ pub(crate) enum HashAlgorithm {
     Sha256
 }
 
+impl ToString for HashAlgorithm {
+    fn to_string(&self) -> String {
+        match self {
+            HashAlgorithm::Sha1 => String::from("sha1"),
+            HashAlgorithm::Sha256 => String::from("sha256"),
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) enum InitPermissionFlag {
     Umask,

@@ -6,7 +6,6 @@ mod integration_tests {
     use predicates::prelude::*;
     use assert_cmd::{Command, prelude::OutputAssertExt};
 
-
     fn assert_git_init_files(git_dir: &ChildPath, expected_head: Option<&str>) {
         let expected_head = format!("ref: refs/heads/{}", expected_head.unwrap_or("main"));
         git_dir.assert(predicate::path::exists());
@@ -41,6 +40,12 @@ mod integration_tests {
 
         let head_file = git_dir.child("HEAD");
         head_file.assert(expected_head);
+
+        let config_file = git_dir.child("config");
+        // TODO: can we test more here?
+        // Some of the contents of the config file may vary between systems,
+        // but some should be consistent.
+        config_file.assert(predicate::path::exists());
 
     }
 
