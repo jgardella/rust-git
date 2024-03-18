@@ -1,7 +1,7 @@
 use std::{fs::{DirBuilder, self, File}, path::{PathBuf, Path}, io::Write};
-use crate::RustGitError;
+use crate::{RustGitError, config::{GitConfig, CoreConfig, ExtensionsConfig}};
 
-use super::cli::{InitArgs, InitPermissionFlag};
+use super::cli::{InitArgs, InitPermissionFlag, HashAlgorithm};
 
 const DEFAULT_GIT_DIR: &str = ".git";
 
@@ -84,7 +84,62 @@ fn create_git_repo(cmd: &InitCommand, project_dir: &PathBuf, git_dir: &PathBuf) 
 
     head_file.write_all(initial_branch_ref.as_bytes())?;
 
+    let config = init_config(cmd, &git_repo_dir);
+    let config_file_path = git_repo_dir.join("config");
+    let mut config_file = File::create(config_file_path)?;
+    // TODO: using TOML for ease of use, but the git config format isn't TOML
+    // Might need to implement a custom serde for that format.
+    config_file.write_all(toml::to_string_pretty(&config)?.as_bytes())?;
+
     Ok(fs::canonicalize(git_repo_dir)?)
+}
+
+fn init_config(cmd: &InitCommand, git_repo_dir: &PathBuf) -> GitConfig {
+	// Note that we initialize the repository version to 1 when the ref
+	// storage format is unknown. This is on purpose so that we can add the
+	// correct object format to the config during git-clone(1). The format
+	// version will get adjusted by git-clone(1) once it has learned about
+	// the remote repository's format.
+    let repo_version =
+        if cmd.args.object_format != HashAlgorithm::Sha1 {
+            0
+        } else {
+            1
+        };
+
+    let object_format = 
+        if cmd.args.object_format != HashAlgorithm::Sha1 {
+            Some(cmd.args.object_format.to_string())
+        } else {
+            None
+        };
+    
+    // Omitted a few things in config initialization:
+    // - setting work-tree: https://github.com/git/git/blob/master/setup.c#L1871C1-L1883C2
+    // - checking if symlink is supported in work tree: https://github.com/git/git/blob/master/setup.c#L2044-L2053
+
+    let ignorecase =
+        // The HEAD file should already be created by this point,
+        // so we can test if the filesystem is case-sensitive this way.
+        if git_repo_dir.join("head").exists() {
+            Some(true)
+        } else {
+            None
+        };
+
+    GitConfig { 
+        core: Some(CoreConfig {
+            repositoryformatversion: Some(repo_version),
+            bare: Some(cmd.args.bare),
+            ignorecase: ignorecase,
+            ..Default::default()
+        }),
+        extensions: Some(ExtensionsConfig {
+            objectformat: object_format,
+            ..Default::default()
+        }),
+        ..Default::default()
+    }
 }
 
 
