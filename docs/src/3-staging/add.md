@@ -12,4 +12,6 @@ SYNOPSIS
                  [--] [<pathspec>...]
 ```
 
-The C Git implementation can be found [here](https://github.com/git/git/blob/master/builtin/add.c). There is a lot of functionality here; to keep things simple, we'll probably omit a lot of features.
+The C Git implementation can be found [here](https://github.com/git/git/blob/master/builtin/add.c). There is a lot of functionality here; to keep things simple, we'll probably omit a lot of features. Rather than doing a 1:1 implementation, it's probably better to implement the functionality from scratch; see the [Git Internals chapter of the Git book](https://git-scm.com/book/en/v2/Git-Internals-Git-Objects) for more info.
+
+There is likely a lot of overlap between the `add` porcelain command and the `hash-object` and `update-index` plumbing commands; it may make sense to implement them all now.

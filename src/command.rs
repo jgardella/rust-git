@@ -1,8 +1,9 @@
-use crate::{add::add::AddCommand, init::init::InitCommand, Cli, CliCommand};
+use crate::{add::add::AddCommand, hash_object::hash_object::HashObjectCommand, init::init::InitCommand, Cli, CliCommand};
 
 pub(crate) enum Command {
     Init(InitCommand),
     Add(AddCommand),
+    HashObject(HashObjectCommand),
 }
 
 // Here we have the mapping logic for converting a `CliCommand` to
@@ -17,6 +18,8 @@ impl From<Cli> for Command {
                 Command::Init(InitCommand::new(args, value.git_dir, value.work_tree)),
             CliCommand::Add(args) => 
                 Command::Add(AddCommand::new(args)),
+            CliCommand::HashObject(args) => 
+                Command::HashObject(HashObjectCommand::new(args)),
         }
     }
 }
