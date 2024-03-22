@@ -12,4 +12,4 @@ SYNOPSIS
                  [--] [<pathspec>...]
 ```
 
-The C Git implementation can be found [here](https://github.com/git/git/blob/master/builtin/add.c).
+The C Git implementation can be found [here](https://github.com/git/git/blob/master/builtin/add.c). There is a lot of functionality here; to keep things simple, we'll probably omit a lot of features.
