@@ -2,6 +2,23 @@ use std::path::PathBuf;
 
 use clap::{Args, ValueEnum};
 
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) enum ChmodFlag {
+    Executable,
+    NonExecutable,
+}
+
+fn parse_chmod_flag(s: &str) -> Result<ChmodFlag, String> {
+    match s {
+        "+x" => Ok(ChmodFlag::Executable),
+        "-x" => Ok(ChmodFlag::NonExecutable),
+        other => {
+            Err(String::from(format!("-chmod param '{other}' must be either -x or +x")))
+        }
+    }
+}
+
+
 #[derive(Args, Debug)]
 #[command(about = "Add file contents to the index")]
 #[command(long_about = "
@@ -39,7 +56,7 @@ pub(crate) struct AddArgs {
     pub pathspec: Option<String>,
 
     /// Don’t actually add the file(s), just show if they exist and/or will be ignored.
-    #[arg(long, short('n'))]
+    #[arg(long, short('n'), conflicts_with="interactive", conflicts_with="patch", conflicts_with="pathspec_from_file")]
     pub dry_run: bool,
 
     /// Be verbose.
@@ -75,7 +92,7 @@ pub(crate) struct AddArgs {
     /// The intent of this option is to pick and choose lines of the patch to apply, or even to modify the contents of lines to be
     /// staged. This can be quicker and more flexible than using the interactive hunk selector. However, it is easy to confuse oneself
     /// and create a patch that does not apply to the index. See EDITING PATCHES below.
-    #[arg(long, short)]
+    #[arg(long, short, conflicts_with="pathspec_from_file")]
     pub edit: bool, 
 
     /// Update the index just where it already has an entry matching <pathspec>. This removes as well as modifies index entries to
@@ -91,7 +108,7 @@ pub(crate) struct AddArgs {
     /// 
     /// If no <pathspec> is given when -A option is used, all files in the entire working tree are updated (old versions of Git used to
     /// limit the update to the current directory and its subdirectories).
-    #[arg(long, short='A', alias="all")]
+    #[arg(long, short='A', alias="all", conflicts_with="update")]
     pub no_ignore_removal: bool, 
 
     /// Update the index by adding new files that are unknown to the index and files modified in the working tree, but ignore files
@@ -120,7 +137,7 @@ pub(crate) struct AddArgs {
 
     /// This option can only be used together with --dry-run. By using this option the user can check if any of the given files would
     /// be ignored, no matter if they are already present in the work tree or not.
-    #[arg(long)]
+    #[arg(long, requires="dry_run")]
     pub ignore_missing: bool,
 
     /// By default, git add will warn when adding an embedded repository to the index without using git submodule add to create an
@@ -137,13 +154,13 @@ pub(crate) struct AddArgs {
 
     /// Override the executable bit of the added files. The executable bit is only changed in the index, the files on disk are left
     /// unchanged.
-    #[arg(long)]
-    pub chmod: bool, // TODO: check type
+    #[arg(long, value_parser=parse_chmod_flag)]
+    pub chmod: Option<ChmodFlag>,
 
     /// Pathspec is passed in <file> instead of commandline args. If <file> is exactly - then standard input is used. Pathspec elements
     /// are separated by LF or CR/LF. Pathspec elements can be quoted as explained for the configuration variable core.quotePath (see
     /// git-config(1)). See also --pathspec-file-nul and global --literal-pathspecs.
-    #[arg(long, value_name="file")]
+    #[arg(long, value_name="file", conflicts_with="pathspec")]
     pub pathspec_from_file: Option<PathBuf>,
 
     /// Only meaningful with --pathspec-from-file. Pathspec elements are separated with NUL character and all other characters are
@@ -156,4 +173,11 @@ pub(crate) struct AddArgs {
 mod tests {
     use super::*;
 
+    #[test]
+    fn test_parse_chmod_flag()
+    {
+        assert_eq!(parse_chmod_flag("+x"), Ok(ChmodFlag::Executable));
+        assert_eq!(parse_chmod_flag("-x"), Ok(ChmodFlag::NonExecutable));
+        assert_eq!(parse_chmod_flag("invalid"), Err(String::from("-chmod param 'invalid' must be either -x or +x")));
+    }
 }

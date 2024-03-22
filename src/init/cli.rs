@@ -72,7 +72,7 @@ pub(crate) struct InitArgs {
     /// filesystem-agnostic Git symbolic link to the repository.
     ///
     /// If this is reinitialization, the repository will be moved to the specified path.
-    #[arg(long, value_name="git-dir", conflicts_with="bare")]
+    #[arg(long, value_name="git-dir")]
     pub separate_git_dir: Option<PathBuf>,
 
     /// Specify the given object format (hash algorithm) for the repository. The valid values are sha1 and (if enabled) sha256. sha1 is the default.
