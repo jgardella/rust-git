@@ -225,6 +225,7 @@ struct Cli {
 enum CliCommand {
     #[clap(alias="init-db")]
     Init(InitArgs),
+    #[clap(alias="stage")]
     Add(AddArgs),
 }
 
