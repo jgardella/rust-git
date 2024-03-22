@@ -242,7 +242,7 @@ fn main() -> Result<(), RustGitError> {
             println!("Initialized empty Git repository in {git_dir_display}");
         }
         Command::HashObject(cmd) =>
-            hash_object::hash_object::hash_object(cmd)?
+            hash_object::hash_object::hash_object(cmd)?,
         Command::Add(cmd) =>
             add::add::add(cmd)?
     }
