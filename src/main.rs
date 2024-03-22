@@ -2,9 +2,11 @@ mod command;
 mod config;
 mod error;
 mod init;
+mod add;
 
-use std::{path::PathBuf};
+use std::path::PathBuf;
 
+use add::cli::AddArgs;
 use clap::{Parser, Subcommand};
 
 use command::Command;
@@ -222,9 +224,9 @@ struct Cli {
 #[derive(Debug, Subcommand)]
 enum CliCommand {
     #[clap(alias="init-db")]
-    Init(InitArgs)
+    Init(InitArgs),
+    Add(AddArgs),
 }
-
 
 fn main() -> Result<(), RustGitError> {
     let cli = Cli::parse();
@@ -235,6 +237,8 @@ fn main() -> Result<(), RustGitError> {
             let git_dir_display = git_dir.display();
             println!("Initialized empty Git repository in {git_dir_display}");
         }
+        Command::Add(cmd) =>
+            add::add::add(cmd)?
     }
 
     Ok(())
