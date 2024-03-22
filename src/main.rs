@@ -2,6 +2,7 @@ mod command;
 mod config;
 mod error;
 mod init;
+mod hash_object;
 mod add;
 
 use std::path::PathBuf;
@@ -11,6 +12,7 @@ use clap::{Parser, Subcommand};
 
 use command::Command;
 use error::RustGitError;
+use hash_object::cli::HashObjectArgs;
 use init::cli::InitArgs;
 
 fn parse_config_override(s: &str) -> Result<(String,String), String> {
@@ -227,6 +229,7 @@ enum CliCommand {
     Init(InitArgs),
     #[clap(alias="stage")]
     Add(AddArgs),
+    HashObject(HashObjectArgs),
 }
 
 fn main() -> Result<(), RustGitError> {
@@ -238,6 +241,8 @@ fn main() -> Result<(), RustGitError> {
             let git_dir_display = git_dir.display();
             println!("Initialized empty Git repository in {git_dir_display}");
         }
+        Command::HashObject(cmd) =>
+            hash_object::hash_object::hash_object(cmd)?
         Command::Add(cmd) =>
             add::add::add(cmd)?
     }
