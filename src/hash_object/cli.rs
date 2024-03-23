@@ -1,5 +1,7 @@
 use clap::Args;
 
+use crate::index::ObjectType;
+
 #[derive(Args, Debug)]
 #[command(about = "Compute object ID and optionally creates a blob from a file")]
 #[command(long_about = "
@@ -10,7 +12,7 @@ work tree), and optionally writes the resulting object into the object database.
 pub(crate) struct HashObjectArgs {
     /// Specify the type (default: "blob").
     #[arg(short='t', default_value="blob", value_name="type")]
-    pub blob_type: String,
+    pub object_type: ObjectType,
 
     /// Actually write the object into the object database.
     #[arg(short)]

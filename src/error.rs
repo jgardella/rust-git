@@ -1,4 +1,5 @@
 use std::fmt;
+use hex::FromHexError;
 
 #[derive(Debug)]
 pub(crate) struct RustGitError {
@@ -13,6 +14,12 @@ impl RustGitError {
 
 impl From<std::io::Error> for RustGitError {
     fn from(value: std::io::Error) -> Self {
+        Self::new(format!("{value:?}"))
+    }
+}
+
+impl From<FromHexError> for RustGitError {
+    fn from(value: FromHexError) -> Self {
         Self::new(format!("{value:?}"))
     }
 }
