@@ -1,5 +1,5 @@
 use std::{fs::File, io::{self, BufRead, BufReader}};
-use crate::RustGitError;
+use crate::{index::GitIndex, RustGitError};
 
 use super::cli::HashObjectArgs;
 
@@ -51,11 +51,12 @@ pub(crate) fn hash_object(cmd: &HashObjectCommand) -> Result<(), RustGitError> /
 {
     let mut to_hash = collect_items_to_hash(cmd)?;
 
-    to_hash.iter_mut().for_each(|br| {
+    let index = GitIndex::new();
+
+    to_hash.iter_mut().map(|br| {
         let mut s = String::new();
         br.read_to_string(&mut s);
-        println!("{}", s)
-    });
-    
-    Ok(())
+        index.index(&cmd.args.object_type, s, false)
+        .map(|object_id| println!("{}", object_id))
+    }).collect::<Result<(), RustGitError>>()
 }

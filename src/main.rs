@@ -1,6 +1,8 @@
 mod command;
+mod index;
 mod config;
 mod error;
+mod hash;
 mod init;
 mod hash_object;
 mod add;
