@@ -1,3 +1,5 @@
+mod object;
+mod repo;
 mod command;
 mod index;
 mod config;
@@ -7,7 +9,7 @@ mod init;
 mod hash_object;
 mod add;
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use add::cli::AddArgs;
 use clap::{Parser, Subcommand};
@@ -16,6 +18,7 @@ use command::Command;
 use error::RustGitError;
 use hash_object::cli::HashObjectArgs;
 use init::cli::InitArgs;
+use repo::GitRepo;
 
 fn parse_config_override(s: &str) -> Result<(String,String), String> {
     match s.find('=') {
@@ -236,15 +239,19 @@ enum CliCommand {
 
 fn main() -> Result<(), RustGitError> {
     let cli = Cli::parse();
+    
+    // TODO: repo path should be determined based on args (git_dir, work_tree, etc)
+    let repo_path = Path::new(".");
+    let repo = GitRepo::new(repo_path)?;
 
-    match &cli.into() {
+    match &cli.try_into()? {
         Command::Init(cmd) => {
             let git_dir = init::init::init_repository(cmd)?;
             let git_dir_display = git_dir.display();
             println!("Initialized empty Git repository in {git_dir_display}");
         }
         Command::HashObject(cmd) =>
-            hash_object::hash_object::hash_object(cmd)?,
+            hash_object::hash_object::hash_object(cmd, &repo)?,
         Command::Add(cmd) =>
             add::add::add(cmd)?
     }

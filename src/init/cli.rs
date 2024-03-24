@@ -1,9 +1,11 @@
 use std::path::PathBuf;
 
 use clap::{Args, ValueEnum};
+use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, PartialEq, ValueEnum)]
+#[derive(Clone, Copy, Default, Debug, Serialize, Deserialize, PartialEq, ValueEnum)]
 pub(crate) enum HashAlgorithm {
+    #[default]
     Sha1,
     Sha256
 }

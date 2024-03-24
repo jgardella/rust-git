@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use clap::ValueEnum;
 
-use crate::{error::RustGitError, hash::get_hasher, init::cli::HashAlgorithm};
+use crate::{error::RustGitError, hash::get_hasher, init::cli::HashAlgorithm, repo::GitRepo};
 
 const MAX_HEADER_LEN: usize = 32;
 
@@ -43,53 +43,42 @@ impl Display for ObjectId {
     }
 }
 
-pub(crate) struct GitIndex {
+fn create_object_header(object_type: &ObjectType, obj_size: usize) -> Result<String, RustGitError> {
+    let header = format!("{object_type} {obj_size}\0");
+    let header_len = header.len();
 
+    if header_len > MAX_HEADER_LEN {
+        return Err(RustGitError::new(format!("header of size {header_len} exceeded max size {MAX_HEADER_LEN}")));
+    }
+
+    Ok(header)
 }
 
-impl GitIndex {
-    pub(crate) fn new() -> GitIndex {
-        GitIndex {}
-    } 
+fn hash_object_body(hash_algo: HashAlgorithm, header: String, obj: String) -> ObjectId {
+    let mut hasher = get_hasher(hash_algo);
+    hasher.update_fn(header);
+    hasher.update_fn(obj);
+    hasher.final_oid_fn()
+}
 
-    fn create_object_header(&self, object_type: &ObjectType, obj_size: usize) -> Result<String, RustGitError> {
-        let header = format!("{object_type} {obj_size}\0");
-        let header_len = header.len();
+fn hash_string(hash_algo: HashAlgorithm, object_type: &ObjectType, obj: String) -> Result<ObjectId, RustGitError> {
+    let header = create_object_header(object_type, obj.len())?;
+    Ok(hash_object_body(hash_algo, header, obj))
+}
 
-        if header_len > MAX_HEADER_LEN {
-            return Err(RustGitError::new(format!("header of size {header_len} exceeded max size {MAX_HEADER_LEN}")));
-        }
+pub(crate) fn index(object_type: &ObjectType, obj: String, write: bool, repo: &GitRepo) -> Result<ObjectId, RustGitError> {
+    // C Git has much more additional logic here, // we just implement the core indexing logic to keep things simple:
+    // - C Git implementation: https://github.com/git/git/blob/master/object-file.c#L2448
+    // - C Git core indexing function: https://github.com/git/git/blob/master/object-file.c#L2312
 
-        Ok(header)
+    // Omitted blob conversion: https://github.com/git/git/blob/master/object-file.c#L2312
+    // Omitted hash format check: https://github.com/git/git/blob/master/object-file.c#L2335-L2343
+    
+    let obj_id = hash_string(repo.config.extensions.objectformat, object_type, obj)?;
+
+    if write {
+        todo!("write hash to git index")
     }
 
-    fn hash_object_body(&self, hash_algo: HashAlgorithm, header: String, obj: String) -> ObjectId {
-        let mut hasher = get_hasher(hash_algo);
-        hasher.update_fn(header);
-        hasher.update_fn(obj);
-        hasher.final_oid_fn()
-    }
-
-    fn hash_string(&self, hash_algo: HashAlgorithm, object_type: &ObjectType, obj: String) -> Result<ObjectId, RustGitError> {
-        let header = self.create_object_header(object_type, obj.len())?;
-        Ok(self.hash_object_body(hash_algo, header, obj))
-    }
-
-    pub(crate) fn index(&self, object_type: &ObjectType, obj: String, write: bool) -> Result<ObjectId, RustGitError> {
-        // C Git has much more additional logic here, // we just implement the core indexing logic to keep things simple:
-        // - C Git implementation: https://github.com/git/git/blob/master/object-file.c#L2448
-        // - C Git core indexing function: https://github.com/git/git/blob/master/object-file.c#L2312
-
-        // Omitted blob conversion: https://github.com/git/git/blob/master/object-file.c#L2312
-        // Omitted hash format check: https://github.com/git/git/blob/master/object-file.c#L2335-L2343
-        
-        let hash_algo = HashAlgorithm::Sha1; // TODO: load hash_algo from repo config
-        let obj_id = self.hash_string(hash_algo, object_type, obj)?;
-
-        if write {
-            todo!("write hash to git index")
-        }
-
-        Ok(obj_id)
-    }
+    Ok(obj_id)
 }
