@@ -47,7 +47,6 @@ fn collect_items_to_hash(cmd: &HashObjectCommand) -> Result<Vec<Box<dyn BufRead>
     return Ok(to_hash);
 }
 
-
 impl GitCommand for HashObjectCommand {
     fn execute(&self, repo: &mut GitRepo) -> Result<(), RustGitError> // TODO: figure out return type
     {
