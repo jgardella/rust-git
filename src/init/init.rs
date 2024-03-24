@@ -50,7 +50,8 @@ fn create_git_repo(cmd: &InitCommand, project_dir: &PathBuf, git_dir: &PathBuf) 
             return Err(RustGitError::new(format!("{git_repo_dir:#?} already exists")))
         }
 
-        dir_builder.create(&git_repo_dir)?;
+        dir_builder.create(&git_repo_dir)
+        .map_err(|err| format!("Failed to create directory: {git_repo_dir:?} ({err})"))?;
     }
 
     let objects_dir = git_repo_dir.join("objects");
@@ -72,7 +73,9 @@ fn create_git_repo(cmd: &InitCommand, project_dir: &PathBuf, git_dir: &PathBuf) 
     dir_builder.create(refs_tags_dir)?;
 
     let head_file_path = git_repo_dir.join("HEAD");
-    let mut head_file = File::create(head_file_path)?;
+    let mut head_file = 
+        File::create(head_file_path)
+        .map_err(|err| format!("Failed to create HEAD: ({err})"))?;
 
     // Real Git has some validation on the ref format, omitted for now:
     // https://github.com/git/git/blob/master/setup.c#L1952
@@ -82,12 +85,17 @@ fn create_git_repo(cmd: &InitCommand, project_dir: &PathBuf, git_dir: &PathBuf) 
     // https://github.com/git/git/blob/master/refs/reftable-backend.c#L2230
     let initial_branch_ref = format!("ref: refs/heads/{}", &cmd.args.initial_branch);
 
-    head_file.write_all(initial_branch_ref.as_bytes())?;
+    head_file.write_all(initial_branch_ref.as_bytes())
+             .map_err(|err| format!("Failed to write initial branch to HEAD file: ({err})"))?;
 
     let config = init_config(cmd, &git_repo_dir);
-    config.write(&git_repo_dir)?;
+    config.write(&git_repo_dir)
+          .map_err(|err| format!("Failed to write config: ({err})"))?;
 
-    Ok(fs::canonicalize(git_repo_dir)?)
+    let canonical_git_repo = 
+        fs::canonicalize(&git_repo_dir)
+        .map_err(|err| format!("Failed to canonicalize git repo {git_repo_dir:?} ({err})"))?;
+    Ok(canonical_git_repo)
 }
 
 fn init_config(cmd: &InitCommand, git_repo_dir: &PathBuf) -> GitConfig {
@@ -126,8 +134,6 @@ fn init_config(cmd: &InitCommand, git_repo_dir: &PathBuf) -> GitConfig {
         ..Default::default()
     }
 }
-
-
 
 impl GitCommand for InitCommand {
 

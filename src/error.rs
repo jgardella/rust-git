@@ -12,6 +12,12 @@ impl RustGitError {
     }
 }
 
+impl From<String> for RustGitError {
+    fn from(value: String) -> Self {
+        Self::new(value)
+    }
+}
+
 impl From<std::io::Error> for RustGitError {
     fn from(value: std::io::Error) -> Self {
         Self::new(format!("{value:?}"))
