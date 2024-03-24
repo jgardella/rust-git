@@ -30,6 +30,12 @@ impl From<toml::ser::Error> for RustGitError {
     }
 }
 
+impl From<toml::de::Error> for RustGitError {
+    fn from(value: toml::de::Error) -> Self {
+        Self::new(format!("{value:?}"))
+    }
+}
+
 impl std::error::Error for RustGitError {}
 
 impl fmt::Display for RustGitError {

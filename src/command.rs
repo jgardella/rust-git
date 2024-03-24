@@ -1,4 +1,6 @@
-use crate::{add::add::AddCommand, hash_object::hash_object::HashObjectCommand, init::init::InitCommand, Cli, CliCommand};
+use std::path::Path;
+
+use crate::{add::add::AddCommand, error::RustGitError, hash_object::hash_object::HashObjectCommand, init::init::InitCommand, repo::GitRepo, Cli, CliCommand};
 
 pub(crate) enum Command {
     Init(InitCommand),
@@ -11,15 +13,17 @@ pub(crate) enum Command {
 //
 // This allows us to only pass in the base options that each command
 // actually cares about.
-impl From<Cli> for Command {
-    fn from(value: Cli) -> Self {
-        match value.command {
+impl TryFrom<Cli> for Command {
+    fn try_from(value: Cli) -> Result<Self, RustGitError> {
+        Ok(match value.command {
             CliCommand::Init(args) => 
                 Command::Init(InitCommand::new(args, value.git_dir, value.work_tree)),
             CliCommand::Add(args) => 
                 Command::Add(AddCommand::new(args)),
             CliCommand::HashObject(args) => 
                 Command::HashObject(HashObjectCommand::new(args)),
-        }
+        })
     }
+    
+    type Error = RustGitError;
 }
