@@ -17,7 +17,7 @@ impl AddCommand {
 }
 
 impl GitCommand for AddCommand {
-    fn execute(&self, _: GitRepo) -> Result<(), RustGitError>
+    fn execute(&self, _: &mut GitRepo) -> Result<(), RustGitError>
     {
         todo!()
     }

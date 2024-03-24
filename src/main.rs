@@ -1,6 +1,5 @@
 mod repo;
 mod command;
-mod index;
 mod config;
 mod error;
 mod hash;
@@ -241,10 +240,10 @@ fn main() -> Result<(), RustGitError> {
     
     // TODO: repo path should be determined based on args (git_dir, work_tree, etc)
     let repo_path = Path::new(".");
-    let repo = GitRepo::new(repo_path)?;
+    let mut repo = GitRepo::new(repo_path)?;
 
     let command = from_cli(cli);
-    command.execute(repo)
+    command.execute(&mut repo)
 }
 
 #[cfg(test)]

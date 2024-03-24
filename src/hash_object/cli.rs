@@ -1,6 +1,6 @@
 use clap::Args;
 
-use crate::index::ObjectType;
+use crate::repo::ObjectType;
 
 #[derive(Args, Debug)]
 #[command(about = "Compute object ID and optionally creates a blob from a file")]
