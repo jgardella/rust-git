@@ -1,5 +1,5 @@
 use std::{fs::File, io::{self, BufRead, BufReader}};
-use crate::{index::index, repo::GitRepo, RustGitError};
+use crate::{command::GitCommand, index::index, repo::GitRepo, RustGitError};
 
 use super::cli::HashObjectArgs;
 
@@ -47,14 +47,17 @@ fn collect_items_to_hash(cmd: &HashObjectCommand) -> Result<Vec<Box<dyn BufRead>
     return Ok(to_hash);
 }
 
-pub(crate) fn hash_object(cmd: &HashObjectCommand, repo: &GitRepo) -> Result<(), RustGitError> // TODO: figure out return type
-{
-    let mut to_hash = collect_items_to_hash(cmd)?;
 
-    to_hash.iter_mut().map(|br| {
-        let mut s = String::new();
-        br.read_to_string(&mut s);
-        index(&cmd.args.object_type, s, false, repo)
-        .map(|object_id| println!("{}", object_id))
-    }).collect::<Result<(), RustGitError>>()
+impl GitCommand for HashObjectCommand {
+    fn execute(&self, repo: GitRepo) -> Result<(), RustGitError> // TODO: figure out return type
+    {
+        let mut to_hash = collect_items_to_hash(&self)?;
+
+        to_hash.iter_mut().map(|br| {
+            let mut s = String::new();
+            br.read_to_string(&mut s);
+            index(&self.args.object_type, s, false, &repo)
+            .map(|object_id| println!("{}", object_id))
+        }).collect::<Result<(), RustGitError>>()
+    }
 }

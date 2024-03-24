@@ -1,5 +1,4 @@
-use std::{fs::{DirBuilder, self, File}, path::{PathBuf, Path}, io::Write};
-use crate::{RustGitError, config::{GitConfig, CoreConfig, ExtensionsConfig}};
+use crate::{command::GitCommand, repo::GitRepo, RustGitError};
 
 use super::cli::AddArgs;
 
@@ -17,7 +16,9 @@ impl AddCommand {
     }
 }
 
-pub(crate) fn add(cmd: &AddCommand) -> Result<(), RustGitError> // TODO: figure out return type
-{
-    Ok(())
+impl GitCommand for AddCommand {
+    fn execute(&self, _: GitRepo) -> Result<(), RustGitError>
+    {
+        todo!()
+    }
 }
