@@ -1,9 +1,9 @@
-use crate::{index::ObjectId, init::cli::HashAlgorithm};
+use crate::{init::cli::HashAlgorithm, repo::ObjectId};
 use sha1::{Sha1, Digest};
 
 pub(crate) trait Hasher {
     fn name(&self) -> HashAlgorithm;
-    fn update_fn(&mut self, content: String);
+    fn update_fn(&mut self, content: &str);
     fn final_oid_fn(&mut self) -> ObjectId;
 }
 
@@ -12,7 +12,7 @@ impl Hasher for Sha1 {
         HashAlgorithm::Sha1
     }
 
-    fn update_fn(&mut self, content: String) {
+    fn update_fn(&mut self, content: &str) {
         self.update(content.as_bytes())
     }
 
