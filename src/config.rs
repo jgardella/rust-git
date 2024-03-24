@@ -49,8 +49,14 @@ pub(crate) struct ExtensionsConfig {
 impl GitConfig {
     pub(crate) fn new(dir: &Path) -> Result<GitConfig, RustGitError>
     {
+        let file_path = dir.join(CONFIG_FILE_NAME);
+
+        if !file_path.exists() {
+            return Ok(GitConfig::default());
+        }
+
         let mut repo_config_s = String::new();
-        File::open(dir.join(CONFIG_FILE_NAME))?.read_to_string(&mut repo_config_s)?;
+        File::open(file_path)?.read_to_string(&mut repo_config_s)?;
         let config: GitConfig = toml::de::from_str(&repo_config_s)?;
         Ok(config)
     }
