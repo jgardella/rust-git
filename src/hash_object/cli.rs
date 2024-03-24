@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use clap::Args;
 
 use crate::repo::ObjectType;
@@ -31,7 +33,7 @@ pub(crate) struct HashObjectArgs {
     /// result of applying filters, the actual blob put into the object database may differ from the given file. This option is mainly
     /// useful for hashing temporary files located outside of the working directory or files read from stdin.
     #[arg(long, conflicts_with="no_filters")]
-    pub path: bool,
+    pub path: Option<PathBuf>,
 
     /// Hash the contents as is, ignoring any input filter that would have been chosen by the attributes mechanism, including the
     /// end-of-line conversion. If the file is read from standard input then this is always implied, unless the --path option is given.

@@ -7,7 +7,7 @@ mod init;
 mod hash_object;
 mod add;
 
-use std::path::{Path, PathBuf};
+use std::{path::{Path, PathBuf}, process::ExitCode};
 
 use add::cli::AddArgs;
 use clap::{Parser, Subcommand};
@@ -235,15 +235,25 @@ enum CliCommand {
     HashObject(HashObjectArgs),
 }
 
-fn main() -> Result<(), RustGitError> {
-    let cli = Cli::parse();
-    
+fn load_repo_and_execute(cli: Cli) -> Result<(), RustGitError> {
     // TODO: repo path should be determined based on args (git_dir, work_tree, etc)
     let repo_path = Path::new(".");
     let mut repo = GitRepo::new(repo_path)?;
 
     let command = from_cli(cli);
     command.execute(&mut repo)
+}
+
+fn main() -> ExitCode {
+    let cli = Cli::parse();
+
+    match load_repo_and_execute(cli) {
+        Ok(_) => ExitCode::SUCCESS,
+        Err(err) => {
+            eprintln!("{}", err.to_string());
+            ExitCode::FAILURE
+        }
+    }
 }
 
 #[cfg(test)]
@@ -263,7 +273,7 @@ mod tests {
     fn test_parse_config_env()
     {
         assert_eq!(parse_config_env("test=blah"), Ok((String::from("test"), String::from("blah"))));
-        assert_eq!(parse_config_env("test="), Err((String::from("Expected env_var in config-env"))));
-        assert_eq!(parse_config_env("test"), Err((String::from("Expected '=' in config-env"))));
+        assert_eq!(parse_config_env("test="), Err(String::from("Expected env_var in config-env")));
+        assert_eq!(parse_config_env("test"), Err(String::from("Expected '=' in config-env")));
     }
 }

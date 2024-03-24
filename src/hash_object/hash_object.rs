@@ -50,6 +50,19 @@ fn collect_items_to_hash(cmd: &HashObjectCommand) -> Result<Vec<Box<dyn BufRead>
 impl GitCommand for HashObjectCommand {
     fn execute(&self, repo: &mut GitRepo) -> Result<(), RustGitError> // TODO: figure out return type
     {
+        // Omitting implementaion of --no-filters, --path, and --literally for now, for simplicity
+        if self.args.no_filters {
+            return Err(RustGitError::new(String::from("--no-filters not supported")));
+        }
+
+        if self.args.path.is_some() {
+            return Err(RustGitError::new(String::from("--path not supported")));
+        }
+
+        if self.args.literally {
+            return Err(RustGitError::new(String::from("--literally not supported")));
+        }
+
         let mut to_hash = collect_items_to_hash(&self)?;
 
         to_hash.iter_mut().map(|br| {
