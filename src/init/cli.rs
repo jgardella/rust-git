@@ -1,20 +1,21 @@
-use std::path::PathBuf;
+use std::{fmt::Display, path::PathBuf};
 
 use clap::{Args, ValueEnum};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Default, Debug, Serialize, Deserialize, PartialEq, ValueEnum)]
+#[serde(rename_all = "lowercase")]
 pub(crate) enum HashAlgorithm {
     #[default]
     Sha1,
     Sha256
 }
 
-impl ToString for HashAlgorithm {
-    fn to_string(&self) -> String {
+impl Display for HashAlgorithm {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            HashAlgorithm::Sha1 => String::from("sha1"),
-            HashAlgorithm::Sha256 => String::from("sha256"),
+            HashAlgorithm::Sha1 => write!(f, "sha1"),
+            HashAlgorithm::Sha256 => write!(f, "sha256"),
         }
     }
 }

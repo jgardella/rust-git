@@ -1,4 +1,4 @@
-use std::fs::{create_dir_all, DirBuilder};
+use std::fs::create_dir_all;
 use std::path::{Path, PathBuf};
 
 use crate::{config::GitConfig, error::RustGitError, hash::get_hasher, init::cli::HashAlgorithm};
