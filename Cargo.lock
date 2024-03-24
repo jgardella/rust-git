@@ -1428,6 +1428,7 @@ dependencies = [
  "predicates",
  "serde",
  "sha1",
+ "test_helpers",
  "toml 0.8.11",
 ]
 
@@ -1689,6 +1690,16 @@ name = "termtree"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3369f5ac52d5eb6ab48c6b4ffdc8efbcad6b89c765749064ba298f2c68a16a76"
+
+[[package]]
+name = "test_helpers"
+version = "0.1.0"
+dependencies = [
+ "assert_cmd",
+ "assert_fs",
+ "flate2",
+ "predicates",
+]
 
 [[package]]
 name = "thiserror"

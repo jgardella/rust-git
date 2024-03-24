@@ -1,3 +1,4 @@
+workspace = { members = ["test_helpers"] }
 [package]
 name = "rust-git"
 version = "0.1.0"
@@ -18,3 +19,4 @@ assert_cmd = "2.0.14"
 assert_fs = "1.1.1"
 mdbook = "0.4.37"
 predicates = "3.1.0"
+test_helpers = { path = "test_helpers" }
