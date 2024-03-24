@@ -1,4 +1,3 @@
-mod object;
 mod repo;
 mod command;
 mod index;
@@ -14,7 +13,7 @@ use std::path::{Path, PathBuf};
 use add::cli::AddArgs;
 use clap::{Parser, Subcommand};
 
-use command::Command;
+use command::from_cli;
 use error::RustGitError;
 use hash_object::cli::HashObjectArgs;
 use init::cli::InitArgs;
@@ -244,19 +243,8 @@ fn main() -> Result<(), RustGitError> {
     let repo_path = Path::new(".");
     let repo = GitRepo::new(repo_path)?;
 
-    match &cli.try_into()? {
-        Command::Init(cmd) => {
-            let git_dir = init::init::init_repository(cmd)?;
-            let git_dir_display = git_dir.display();
-            println!("Initialized empty Git repository in {git_dir_display}");
-        }
-        Command::HashObject(cmd) =>
-            hash_object::hash_object::hash_object(cmd, &repo)?,
-        Command::Add(cmd) =>
-            add::add::add(cmd)?
-    }
-
-    Ok(())
+    let command = from_cli(cli);
+    command.execute(repo)
 }
 
 #[cfg(test)]
