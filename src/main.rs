@@ -6,6 +6,7 @@ mod hash;
 mod init;
 mod hash_object;
 mod add;
+mod cat_file;
 
 use std::{path::{Path, PathBuf}, process::ExitCode};
 
