@@ -5,6 +5,7 @@ mod error;
 mod hash;
 mod init;
 mod hash_object;
+mod object;
 mod add;
 mod cat_file;
 
@@ -243,7 +244,7 @@ fn load_repo_and_execute(cli: Cli) -> Result<(), RustGitError> {
     let repo_path = Path::new(".");
     let mut repo = GitRepo::new(repo_path)?;
 
-    let command = from_cli(cli);
+    let command = from_cli(cli)?;
     command.execute(&mut repo)
 }
 

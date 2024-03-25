@@ -1,23 +1,23 @@
 use std::{fs::File, io::{self, BufRead, BufReader}};
-use crate::{command::GitCommand, repo::{GitRepo, ObjectId, ObjectType}, RustGitError};
+use crate::{command::GitCommand, repo::GitRepo, object::{GitObjectId, GitObjectType}, RustGitError};
 
 use super::cli::CatFileArgs;
 
 pub(crate) enum CatFileCommand {
-    ShowType(ObjectId),
-    ShowSize(ObjectId),
-    Check(ObjectId),
-    Print(ObjectId),
-    ShowContent(ObjectType, ObjectId),
+    ShowType(GitObjectId),
+    ShowSize(GitObjectId),
+    Check(GitObjectId),
+    Print(GitObjectId),
+    ShowContent(GitObjectType, GitObjectId),
     ShowAll(),
 }
 
 impl CatFileCommand {
     pub fn new(args: CatFileArgs) -> Result<CatFileCommand, RustGitError> {
-        match args.input[..] {
+        match &args.input[..] {
             [] => Ok(CatFileCommand::ShowAll()),
             [object] => {
-                let obj_id = object.parse::<ObjectId>()?;
+                let obj_id = object.parse::<GitObjectId>()?;
                 if args.mode.show_type {
                     Ok(Self::ShowType(obj_id))
                 } else if args.mode.show_size {
@@ -31,8 +31,8 @@ impl CatFileCommand {
                 }
             },
             [obj_type, object] => {
-                let obj_id = object.parse::<ObjectId>()?;
-                let obj_type = obj_type.parse::<ObjectType>()?;
+                let obj_id = object.parse::<GitObjectId>()?;
+                let obj_type = obj_type.parse::<GitObjectType>()?;
                 Ok(Self::ShowContent(obj_type, obj_id))
             }
             _ => {
@@ -45,13 +45,6 @@ impl CatFileCommand {
 impl GitCommand for CatFileCommand {
     fn execute(&self, repo: &mut GitRepo) -> Result<(), RustGitError> // TODO: figure out return type
     {
-        match self {
-            CatFileCommand::ShowType(_) => todo!(),
-            CatFileCommand::ShowSize(_) => todo!(),
-            CatFileCommand::Check(_) => todo!(),
-            CatFileCommand::Print(_) => todo!(),
-            CatFileCommand::ShowContent(_, _) => todo!(),
-            CatFileCommand::ShowAll() => todo!(),
-        }
+        todo!()
     }
 }

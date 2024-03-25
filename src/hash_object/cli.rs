@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use clap::Args;
 
-use crate::repo::ObjectType;
+use crate::object::GitObjectType;
 
 #[derive(Args, Debug)]
 #[command(about = "Compute object ID and optionally creates a blob from a file")]
@@ -14,7 +14,7 @@ work tree), and optionally writes the resulting object into the object database.
 pub(crate) struct HashObjectArgs {
     /// Specify the type (default: "blob").
     #[arg(short='t', default_value="blob", value_name="type")]
-    pub object_type: ObjectType,
+    pub object_type: GitObjectType,
 
     /// Actually write the object into the object database.
     #[arg(short)]
