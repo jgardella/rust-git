@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use clap::Args;
 
-use crate::repo::ObjectType;
+use crate::repo::{ObjectId, ObjectType};
 
 #[derive(Args, Debug)]
 #[command(about = "Provide content or type and size information for repository objects")]
@@ -17,5 +17,30 @@ either --textconv or --filters was specified, the input is expected to list the 
 name, separated by a single whitespace, so that the appropriate drivers can be determined.
 ")]
 pub(crate) struct CatFileArgs {
+    /// Instead of the content, show the object type identified by <object>.
+    #[arg(short('t'))]
+    show_type: bool,
 
+    /// Instead of the content, show the object size identified by <object>.
+    #[arg(short('s'))]
+    show_size: bool,
+
+    /// Exit with zero status if <object> exists and is a valid object. If <object> is of an invalid format exit with
+    /// non-zero and emits an error on stderr.
+    #[arg(short('e'))]
+    check: bool,
+
+    /// Pretty-print the contents of <object> based on its type.
+    #[arg(short)]
+    print: bool,
+
+    /// Typically this matches the real type of <object> but asking for a type that can trivially be dereferenced from
+    /// the given <object> is also permitted. An example is to ask for a "tree" with <object> being a commit object
+    /// that contains it, or to ask for a "blob" with <object> being a tag object that points at it.
+    #[arg(value_name="type")]
+    obj_type: Option<ObjectType>,
+
+    /// The name of the object to show. For a more complete list of ways to spell object names, see the "SPECIFYING
+    /// REVISIONS" section in gitrevisions(7).
+    object: Option<String>,
 }

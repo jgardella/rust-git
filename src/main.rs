@@ -11,6 +11,7 @@ mod cat_file;
 use std::{path::{Path, PathBuf}, process::ExitCode};
 
 use add::cli::AddArgs;
+use cat_file::cli::CatFileArgs;
 use clap::{Parser, Subcommand};
 
 use command::from_cli;
@@ -234,6 +235,7 @@ enum CliCommand {
     #[clap(alias="stage")]
     Add(AddArgs),
     HashObject(HashObjectArgs),
+    CatFile(CatFileArgs),
 }
 
 fn load_repo_and_execute(cli: Cli) -> Result<(), RustGitError> {
