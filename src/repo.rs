@@ -9,19 +9,38 @@ use std::io::{Read, Write};
 use flate2::read::ZlibDecoder;
 use flate2::{Compression, write::ZlibEncoder};
 
+pub(crate) enum RepoState {
+    Repo(GitRepo),
+    NoRepo(PathBuf),
+}
+
+impl RepoState {
+    pub(crate) fn try_get(self) -> Result<GitRepo, RustGitError> {
+        match self {
+            RepoState::Repo(repo) => Ok(repo),
+            RepoState::NoRepo(git_dir) => Err(RustGitError::new(format!("not a git repository (or any of the parent directories): {git_dir:?}"))),
+        }
+    }
+}
 
 pub(crate) struct GitRepo {
     pub(crate) config: GitConfig,
 }
 
 impl GitRepo {
-    pub(crate) fn new(dir: &Path) -> Result<GitRepo, RustGitError>
+    pub(crate) fn new(dir: &Path) -> Result<RepoState, RustGitError>
     {
-        let config = GitConfig::new(dir)?;
+        let git_dir = dir.join(".git");
 
-        Ok(GitRepo {
+        if !git_dir.exists() {
+            return Ok(RepoState::NoRepo(git_dir));
+        }
+
+        let config = GitConfig::new(&git_dir)?;
+
+        Ok(RepoState::Repo(GitRepo {
             config,
-        })
+        }))
     }
 
     fn git_dir(&self) -> PathBuf {

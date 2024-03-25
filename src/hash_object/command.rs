@@ -1,5 +1,5 @@
 use std::{fs::File, io::{self, BufRead, BufReader}};
-use crate::{command::GitCommand, repo::GitRepo, RustGitError};
+use crate::{command::GitCommand, repo::{GitRepo, RepoState}, RustGitError};
 
 use super::cli::HashObjectArgs;
 
@@ -48,8 +48,10 @@ fn collect_items_to_hash(cmd: &HashObjectCommand) -> Result<Vec<Box<dyn BufRead>
 }
 
 impl GitCommand for HashObjectCommand {
-    fn execute(&self, repo: &mut GitRepo) -> Result<(), RustGitError> // TODO: figure out return type
+    fn execute(&self, repo_state: RepoState) -> Result<(), RustGitError>
     {
+        let mut repo = repo_state.try_get()?;
+
         // Omitting implementaion of --no-filters, --path, and --literally for now, for simplicity
         if self.args.no_filters {
             return Err(RustGitError::new(String::from("--no-filters not supported")));

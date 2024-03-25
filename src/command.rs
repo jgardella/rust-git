@@ -1,7 +1,7 @@
-use crate::{add::command::AddCommand, cat_file::command::CatFileCommand, error::RustGitError, hash_object::command::HashObjectCommand, init::command::InitCommand, repo::GitRepo, Cli, CliCommand};
+use crate::{add::command::AddCommand, cat_file::command::CatFileCommand, error::RustGitError, hash_object::command::HashObjectCommand, init::command::InitCommand, repo::RepoState, Cli, CliCommand};
 
 pub(crate) trait GitCommand {
-    fn execute(&self, repo: &mut GitRepo) -> Result<(), RustGitError>;
+    fn execute(&self, repo_state: RepoState) -> Result<(), RustGitError>;
 }
 
 // Here we have the mapping logic for converting a `CliCommand` to

@@ -104,7 +104,6 @@ impl FromStr for GitObjectHeader {
     }
 }
 
-
 pub(crate) struct GitObjectContents {
     pub(crate) header: GitObjectHeader,
     pub(crate) content: String,

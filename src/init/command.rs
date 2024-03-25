@@ -1,5 +1,5 @@
 use std::{fs::{DirBuilder, self, File}, path::{PathBuf, Path}, io::Write};
-use crate::{command::GitCommand, config::{CoreConfig, ExtensionsConfig, GitConfig}, repo::GitRepo, RustGitError};
+use crate::{command::GitCommand, config::{CoreConfig, ExtensionsConfig, GitConfig}, repo::RepoState, RustGitError};
 
 use super::cli::{InitArgs, InitPermissionFlag, HashAlgorithm};
 
@@ -137,7 +137,7 @@ fn init_config(cmd: &InitCommand, git_repo_dir: &PathBuf) -> GitConfig {
 
 impl GitCommand for InitCommand {
 
-    fn execute(&self, _: &mut GitRepo) -> Result<(), RustGitError>
+    fn execute(&self, _: RepoState) -> Result<(), RustGitError>
     {
         // Create base directory, if specified.
         let root_dir =

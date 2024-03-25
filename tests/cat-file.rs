@@ -2,6 +2,7 @@
 mod integration_tests {
 
     use assert_cmd::{Command, prelude::OutputAssertExt};
+    use assert_fs::TempDir;
     use test_helpers::TestGitRepo;
 
     #[test]
@@ -150,5 +151,21 @@ mod integration_tests {
         .assert()
         .failure()
         .stderr(format!("object {obj_id} not found"));
+    }
+
+    #[test]
+    fn should_return_failure_if_no_git_repo_found() {
+        let temp_dir = TempDir::new().unwrap();
+        let obj_id = "not-an-object-id";
+
+        Command::cargo_bin("rust-git")
+        .unwrap()
+        .arg("cat-file")
+        .arg("blob")
+        .arg(obj_id)
+        .current_dir(temp_dir.path())
+        .assert()
+        .failure()
+        .stderr(format!("not a git repository (or any of the parent directories): \"./.git\""));
     }
  }
