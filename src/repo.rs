@@ -1,11 +1,12 @@
 use std::fs::create_dir_all;
 use std::path::{Path, PathBuf};
 
-use crate::object::{GitObject, GitObjectId, GitObjectType};
+use crate::object::{GitObject, GitObjectContents, GitObjectId, GitObjectType};
 use crate::{config::GitConfig, error::RustGitError, hash::get_hasher};
 
 use std::fs::File;
-use std::io::Write;
+use std::io::{Read, Write};
+use flate2::read::ZlibDecoder;
 use flate2::{Compression, write::ZlibEncoder};
 
 
@@ -45,7 +46,7 @@ impl GitRepo {
         let (obj_folder, obj_file_name) = self.loose_object_path(&obj.id);
 
         let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
-        encoder.write_all(obj.to_string().as_bytes())?;
+        encoder.write_all(obj.content.to_string().as_bytes())?;
         let compressed_bytes = encoder.finish()?;
 
         create_dir_all(&obj_folder)?;
@@ -54,6 +55,24 @@ impl GitRepo {
         object_file.write_all(&compressed_bytes)?;
 
         Ok(())
+    }
+
+    pub(crate) fn read_object(&self, obj_id: &GitObjectId) -> Result<Option<GitObjectContents>, RustGitError> {
+        let (obj_folder, obj_file_name) = self.loose_object_path(&obj_id);
+        let obj_file_path = obj_folder.join(obj_file_name);
+
+        if !obj_file_path.exists() {
+            return Ok(None);
+        }
+
+        let object_file = File::open(obj_file_path)?;
+
+        let mut decoder = ZlibDecoder::new(object_file);
+        let mut decoded = String::new();
+        decoder.read_to_string(&mut decoded).unwrap();
+        let obj = decoded.parse::<GitObjectContents>()?;
+
+        Ok(Some(obj))
     }
 
     pub(crate) fn index(&mut self, obj_type: GitObjectType, content: String, write: bool) -> Result<GitObjectId, RustGitError> {

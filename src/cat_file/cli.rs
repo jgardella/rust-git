@@ -1,7 +1,7 @@
 use clap::Args;
 
 #[derive(Args, Debug)]
-#[group(multiple=false, requires="object")]
+#[group(multiple=false, requires="input")]
 pub(crate) struct CatFileMode {
     /// Instead of the content, show the object type identified by <object>.
     #[arg(short('t'))]
@@ -19,7 +19,6 @@ pub(crate) struct CatFileMode {
     /// Pretty-print the contents of <object> based on its type.
     #[arg(short)]
     pub(crate) print: bool,
-
 }
 
 #[derive(Args, Debug)]
