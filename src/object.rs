@@ -69,8 +69,8 @@ impl FromStr for GitObjectId {
 }
 
 pub(crate) struct GitObjectHeader {
-    obj_type: GitObjectType,
-    size: usize,
+    pub(crate) obj_type: GitObjectType,
+    pub(crate) size: usize,
 }
 
 impl Display for GitObjectHeader {
@@ -84,17 +84,57 @@ impl Display for GitObjectHeader {
 
         write!(f, "{}", header)
     }
+
 }
 
-pub(crate) struct GitObject {
-    pub(crate) id: GitObjectId,
+impl FromStr for GitObjectHeader {
+    type Err = RustGitError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if let Some((obj_type, size)) = s.split_once(' ') {
+            let obj_type = obj_type.parse::<GitObjectType>()?;
+            let size = size.parse::<usize>()?;
+            Ok(GitObjectHeader {
+                obj_type,
+                size,
+            })
+        } else {
+            Err(RustGitError::new(String::from("Missing space in object header")))
+        }
+    }
+}
+
+
+pub(crate) struct GitObjectContents {
     pub(crate) header: GitObjectHeader,
     pub(crate) content: String,
 }
 
-impl Display for GitObject {
+pub(crate) struct GitObject {
+    pub(crate) id: GitObjectId,
+    pub(crate) content: GitObjectContents,
+}
+
+impl Display for GitObjectContents {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}{}", self.header, self.content)
+    }
+}
+
+impl FromStr for GitObjectContents {
+    type Err = RustGitError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if let Some((header, content)) = s.split_once('\0') {
+            let header = header.parse::<GitObjectHeader>()?;
+
+            Ok(GitObjectContents {
+                header,
+                content: content.to_string(),
+            })
+        } else {
+            Err(RustGitError::new(String::from("Missing '\\0' in object file")))
+        }
     }
 }
 
@@ -115,10 +155,13 @@ impl GitObject {
         }
 
         let id = Self::get_object_id(&header, &content, hasher);
+        let content = GitObjectContents {
+            header,
+            content,
+        };
 
         Ok(GitObject {
             id,
-            header,
             content,
         })
     }
