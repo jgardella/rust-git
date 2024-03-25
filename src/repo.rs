@@ -1,5 +1,6 @@
 use std::fs::create_dir_all;
 use std::path::{Path, PathBuf};
+use std::str::FromStr;
 
 use crate::{config::GitConfig, error::RustGitError, hash::get_hasher, init::cli::HashAlgorithm};
 
@@ -31,6 +32,20 @@ impl Display for ObjectType {
     }
 }
 
+impl FromStr for ObjectType {
+    type Err = RustGitError;
+    
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "commit" => Ok(ObjectType::Commit),
+            "tree" => Ok(ObjectType::Tree),
+            "blob" => Ok(ObjectType::Blob),
+            "tag" => Ok(ObjectType::Tag),
+            _ => Err(RustGitError::new(format!("'{s}' is not a valid object type")))
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub(crate) struct ObjectId(String);
 
@@ -47,6 +62,15 @@ impl ObjectId {
 impl Display for ObjectId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
+    }
+}
+
+impl FromStr for ObjectId {
+    type Err = RustGitError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        // TODO: any validation to add here?
+        Ok(ObjectId(String::from(s)))
     }
 }
 
