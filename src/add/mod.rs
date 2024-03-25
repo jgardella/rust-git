@@ -1,2 +1,2 @@
 pub(crate) mod cli;
-pub(crate) mod add;
+pub(crate) mod command;
