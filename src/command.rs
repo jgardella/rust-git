@@ -9,15 +9,15 @@ pub(crate) trait GitCommand {
 //
 // This allows us to only pass in the base options that each command
 // actually cares about.
-pub(crate) fn from_cli(value: Cli) -> Box<dyn GitCommand> {
+pub(crate) fn from_cli(value: Cli) -> Result<Box<dyn GitCommand>, RustGitError> {
     match value.command {
         CliCommand::Init(args) => 
-            Box::new(InitCommand::new(args, value.git_dir, value.work_tree)),
+            Ok(Box::new(InitCommand::new(args, value.git_dir, value.work_tree))),
         CliCommand::Add(args) => 
-            Box::new(AddCommand::new(args)),
+            Ok(Box::new(AddCommand::new(args))),
         CliCommand::HashObject(args) => 
-            Box::new(HashObjectCommand::new(args)),
+            Ok(Box::new(HashObjectCommand::new(args))),
         CliCommand::CatFile(args) => 
-            Box::new(CatFileCommand::new(args)),
+            CatFileCommand::new(args).map(|res| Box::new(res) as Box<dyn GitCommand>)
     }
 }

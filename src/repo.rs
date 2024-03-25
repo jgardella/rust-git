@@ -1,78 +1,13 @@
 use std::fs::create_dir_all;
 use std::path::{Path, PathBuf};
-use std::str::FromStr;
 
-use crate::{config::GitConfig, error::RustGitError, hash::get_hasher, init::cli::HashAlgorithm};
+use crate::object::{GitObject, GitObjectId, GitObjectType};
+use crate::{config::GitConfig, error::RustGitError, hash::get_hasher};
 
-use std::{fmt::Display, fs::File};
+use std::fs::File;
 use std::io::Write;
 use flate2::{Compression, write::ZlibEncoder};
 
-use clap::ValueEnum;
-
-const MAX_HEADER_LEN: usize = 32;
-
-#[derive(Clone, Debug, ValueEnum)]
-pub(crate) enum ObjectType {
-    Commit,
-    Tree,
-    Blob,
-    Tag,
-}
-
-impl Display for ObjectType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let s = match self {
-            ObjectType::Commit => "commit",
-            ObjectType::Tree => "tree",
-            ObjectType::Blob => "blob",
-            ObjectType::Tag => "tag",
-        };
-        write!(f, "{}", s)
-    }
-}
-
-impl FromStr for ObjectType {
-    type Err = RustGitError;
-    
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "commit" => Ok(ObjectType::Commit),
-            "tree" => Ok(ObjectType::Tree),
-            "blob" => Ok(ObjectType::Blob),
-            "tag" => Ok(ObjectType::Tag),
-            _ => Err(RustGitError::new(format!("'{s}' is not a valid object type")))
-        }
-    }
-}
-
-#[derive(Clone, Debug)]
-pub(crate) struct ObjectId(String);
-
-impl ObjectId {
-    pub(crate) fn new(s: String) -> Self {
-        ObjectId(s)
-    }
-
-    pub(crate) fn folder_and_file_name(&self) -> (&str, &str) {
-        self.0.split_at(2)
-    }
-}
-
-impl Display for ObjectId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-impl FromStr for ObjectId {
-    type Err = RustGitError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        // TODO: any validation to add here?
-        Ok(ObjectId(String::from(s)))
-    }
-}
 
 pub(crate) struct GitRepo {
     pub(crate) config: GitConfig,
@@ -92,7 +27,7 @@ impl GitRepo {
         Path::new(".git").to_path_buf()
     }
 
-    pub(crate) fn loose_object_path(&self, obj_id: &ObjectId) -> (PathBuf, PathBuf) {
+    pub(crate) fn loose_object_path(&self, obj_id: &GitObjectId) -> (PathBuf, PathBuf) {
         // C Git additional logic omitted:
         // https://github.com/git/git/blob/11c821f2f2a31e70fb5cc449f9a29401c333aad2/object-file.c#L436-L445 
 
@@ -106,30 +41,11 @@ impl GitRepo {
         (obj_folder, Path::new(file_name).to_path_buf())
     }
 
-    fn create_object_header(&self, object_type: &ObjectType, obj_size: usize) -> Result<String, RustGitError> {
-        let header = format!("{object_type} {obj_size}\0");
-        let header_len = header.len();
-
-        if header_len > MAX_HEADER_LEN {
-            return Err(RustGitError::new(format!("header of size {header_len} exceeded max size {MAX_HEADER_LEN}")));
-        }
-
-        Ok(header)
-    }
-
-    fn hash_object(&self, hash_algo: HashAlgorithm, header: &str, obj: &str) -> ObjectId {
-        let mut hasher = get_hasher(hash_algo);
-        hasher.update_fn(header);
-        hasher.update_fn(obj);
-        hasher.final_oid_fn()
-    }
-
-    fn write_object(&self, obj_id: &ObjectId, header: &str, obj: &str) -> Result<(), RustGitError> {
-        let (obj_folder, obj_file_name) = self.loose_object_path(obj_id);
+    fn write_object(&self, obj: &GitObject) -> Result<(), RustGitError> {
+        let (obj_folder, obj_file_name) = self.loose_object_path(&obj.id);
 
         let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
-        encoder.write_all(header.as_bytes())?;
-        encoder.write_all(obj.as_bytes())?;
+        encoder.write_all(obj.to_string().as_bytes())?;
         let compressed_bytes = encoder.finish()?;
 
         create_dir_all(&obj_folder)?;
@@ -140,7 +56,7 @@ impl GitRepo {
         Ok(())
     }
 
-    pub(crate) fn index(&mut self, object_type: &ObjectType, obj: String, write: bool) -> Result<ObjectId, RustGitError> {
+    pub(crate) fn index(&mut self, obj_type: GitObjectType, content: String, write: bool) -> Result<GitObjectId, RustGitError> {
         // C Git has much more additional logic here, // we just implement the core indexing logic to keep things simple:
         // - C Git implementation: https://github.com/git/git/blob/master/object-file.c#L2448
         // - C Git core indexing function: https://github.com/git/git/blob/master/object-file.c#L2312
@@ -148,13 +64,13 @@ impl GitRepo {
         // Omitted blob conversion: https://github.com/git/git/blob/master/object-file.c#L2312
         // Omitted hash format check: https://github.com/git/git/blob/master/object-file.c#L2335-L2343
 
-        let header = self.create_object_header(object_type, obj.len())?;
-        let obj_id = self.hash_object(self.config.extensions.objectformat, &header, &obj);
+        let mut hasher = get_hasher(self.config.extensions.objectformat);
+        let obj = GitObject::new(obj_type, content, &mut hasher)?;
 
         if write {
-            self.write_object(&obj_id, &header, &obj)?;
+            self.write_object(&obj)?;
         }
 
-        Ok(obj_id)
+        Ok(obj.id)
     }
 }

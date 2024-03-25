@@ -1,7 +1,5 @@
 use clap::Args;
 
-use crate::repo::ObjectType;
-
 #[derive(Args, Debug)]
 #[group(multiple=false, requires="object")]
 pub(crate) struct CatFileMode {

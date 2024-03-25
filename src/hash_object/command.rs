@@ -68,7 +68,7 @@ impl GitCommand for HashObjectCommand {
         to_hash.iter_mut().map(|br| {
             let mut s = String::new();
             br.read_to_string(&mut s)?;
-            repo.index(&self.args.object_type, s, self.args.write)
+            repo.index(self.args.object_type, s, self.args.write)
             .map(|object_id| println!("{}", object_id))
         }).collect::<Result<(), RustGitError>>()
     }

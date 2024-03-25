@@ -1,10 +1,10 @@
-use crate::{init::cli::HashAlgorithm, repo::ObjectId};
+use crate::{init::cli::HashAlgorithm, object::GitObjectId};
 use sha1::{Sha1, Digest};
 
 pub(crate) trait Hasher {
     fn name(&self) -> HashAlgorithm;
     fn update_fn(&mut self, content: &str);
-    fn final_oid_fn(&mut self) -> ObjectId;
+    fn final_oid_fn(&mut self) -> GitObjectId;
 }
 
 impl Hasher for Sha1 {
@@ -16,10 +16,10 @@ impl Hasher for Sha1 {
         self.update(content.as_bytes())
     }
 
-    fn final_oid_fn(&mut self) -> ObjectId  {
+    fn final_oid_fn(&mut self) -> GitObjectId  {
         let result = self.finalize_reset();
         let s = hex::encode(result[..].to_vec());
-        ObjectId::new(s)
+        GitObjectId::new(s)
     }
 }
 
