@@ -1,4 +1,6 @@
-use crate::{command::GitCommand, repo::GitRepo, object::{GitObjectId, GitObjectType}, RustGitError};
+use std::io::{self, BufRead};
+
+use crate::{command::GitCommand, object::{GitObjectContents, GitObjectId, GitObjectType}, repo::GitRepo, RustGitError};
 
 use super::cli::CatFileArgs;
 
@@ -41,6 +43,17 @@ impl CatFileCommand {
     }
 }
 
+fn show(s: Result<String, std::io::Error>, i: usize, repo: &mut GitRepo) -> Result<GitObjectContents, String> {
+    let line = s.map_err(|e| format!("error reading input line {} ({})", i, e))?;
+    let obj_id = line.parse::<GitObjectId>().map_err(|e| format!("error parsing object id {line}: ({e})"))?;
+    let obj = repo.read_object(&obj_id).map_err(|e| format!("error reading object {}, ({})", obj_id, e))?;
+
+    match obj {
+        Some(obj) => Ok(obj),
+        None => Err(format!("object {} not found", obj_id)),
+    }
+}
+//format!("{} {}\n {}", obj.header.obj_type, obj.header.size, obj.content)),
 impl GitCommand for CatFileCommand {
     fn execute(&self, repo: &mut GitRepo) -> Result<(), RustGitError>
     {
@@ -102,7 +115,16 @@ impl GitCommand for CatFileCommand {
                     }
                 }
             }
-            CatFileCommand::ShowAll() => todo!(),
+            CatFileCommand::ShowAll() => {
+                for (i, line) in io::stdin().lock().lines().enumerate() {
+                    match show(line, i, repo) {
+                        Ok(obj) => 
+                            println!("{} {}\n {}", obj.header.obj_type, obj.header.size, obj.content),
+                        Err(err) => 
+                            eprintln!("{}", err),
+                    }
+                }
+            }
         };
 
         Ok(())
