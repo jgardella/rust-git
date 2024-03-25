@@ -31,6 +31,7 @@ impl Display for ObjectType {
     }
 }
 
+#[derive(Clone, Debug)]
 pub(crate) struct ObjectId(String);
 
 impl ObjectId {
@@ -48,7 +49,6 @@ impl Display for ObjectId {
         write!(f, "{}", self.0)
     }
 }
-
 
 pub(crate) struct GitRepo {
     pub(crate) config: GitConfig,
