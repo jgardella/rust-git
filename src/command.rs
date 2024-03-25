@@ -1,4 +1,4 @@
-use crate::{add::add::AddCommand, cat_file::{cli::CatFileArgs, command::CatFileCommand}, error::RustGitError, hash_object::hash_object::HashObjectCommand, init::init::InitCommand, repo::GitRepo, Cli, CliCommand};
+use crate::{add::command::AddCommand, cat_file::command::CatFileCommand, error::RustGitError, hash_object::command::HashObjectCommand, init::command::InitCommand, repo::GitRepo, Cli, CliCommand};
 
 pub(crate) trait GitCommand {
     fn execute(&self, repo: &mut GitRepo) -> Result<(), RustGitError>;
