@@ -7,20 +7,20 @@ use crate::repo::ObjectType;
 pub(crate) struct CatFileMode {
     /// Instead of the content, show the object type identified by <object>.
     #[arg(short('t'))]
-    show_type: bool,
+    pub(crate) show_type: bool,
 
     /// Instead of the content, show the object size identified by <object>.
     #[arg(short('s'))]
-    show_size: bool,
+    pub(crate) show_size: bool,
 
     /// Exit with zero status if <object> exists and is a valid object. If <object> is of an invalid format exit with
     /// non-zero and emits an error on stderr.
     #[arg(short('e'))]
-    check: bool,
+    pub(crate) check: bool,
 
     /// Pretty-print the contents of <object> based on its type.
     #[arg(short)]
-    print: bool,
+    pub(crate) print: bool,
 
 }
 
@@ -38,7 +38,7 @@ name, separated by a single whitespace, so that the appropriate drivers can be d
 ")]
 pub(crate) struct CatFileArgs {
     #[command(flatten)]
-    mode: CatFileMode,
+    pub(crate) mode: CatFileMode,
 
     // TODO: We are parsing the type and object as a vector; I couldn't find a better way to
     // represent the way C git handles the cat-file command using Clap.
@@ -54,5 +54,5 @@ pub(crate) struct CatFileArgs {
     /// The name of the object to show. For a more complete list of ways to spell object names, see the "SPECIFYING
     /// REVISIONS" section in gitrevisions(7).
     #[arg(value_names=(["type", "object"]), num_args=0..3)]
-    object: Vec<String>,
+    pub(crate) input: Vec<String>,
 }
