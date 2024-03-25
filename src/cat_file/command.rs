@@ -1,6 +1,6 @@
 use std::io::{self, BufRead};
 
-use crate::{command::GitCommand, object::{GitObject, GitObjectId, GitObjectType}, repo::GitRepo, RustGitError};
+use crate::{command::GitCommand, object::{GitObject, GitObjectId, GitObjectType}, repo::{GitRepo, RepoState}, RustGitError};
 
 use super::cli::CatFileArgs;
 
@@ -60,8 +60,10 @@ fn show(s: Result<String, std::io::Error>, i: usize, repo: &mut GitRepo) -> Resu
     }
 }
 impl GitCommand for CatFileCommand {
-    fn execute(&self, repo: &mut GitRepo) -> Result<(), RustGitError>
+    fn execute(&self, repo_state: RepoState) -> Result<(), RustGitError>
     {
+        let mut repo = repo_state.try_get()?;
+
         match self {
             CatFileCommand::ShowType(obj_id) => {
                 let obj = repo.read_object(obj_id)?;
@@ -122,7 +124,7 @@ impl GitCommand for CatFileCommand {
             }
             CatFileCommand::ShowAll() => {
                 for (i, line) in io::stdin().lock().lines().enumerate() {
-                    match show(line, i, repo) {
+                    match show(line, i, &mut repo) {
                         Ok(obj) => 
                             println!("{} {} {}\n{}\n", obj.id, obj.content.header.obj_type, obj.content.header.size, obj.content.content),
                         Err(err) => 

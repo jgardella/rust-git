@@ -1,4 +1,4 @@
-use crate::{command::GitCommand, repo::GitRepo, RustGitError};
+use crate::{command::GitCommand, repo::RepoState, RustGitError};
 
 use super::cli::AddArgs;
 
@@ -17,7 +17,7 @@ impl AddCommand {
 }
 
 impl GitCommand for AddCommand {
-    fn execute(&self, _: &mut GitRepo) -> Result<(), RustGitError>
+    fn execute(&self, _: RepoState) -> Result<(), RustGitError>
     {
         todo!()
     }

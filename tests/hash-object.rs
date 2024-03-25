@@ -2,6 +2,7 @@
 mod integration_tests {
 
     use assert_cmd::{Command, prelude::OutputAssertExt};
+    use assert_fs::TempDir;
     use test_helpers::{TempDirExt, TestGitRepo};
 
     #[test]
@@ -106,5 +107,22 @@ mod integration_tests {
         test_git_repo.assert_unsupported_option("hash-object", vec!["--no-filters"]);
         test_git_repo.assert_unsupported_option("hash-object", vec!["--path", "my-path"]);
         test_git_repo.assert_unsupported_option("hash-object", vec!["--literally"]);
+    }
+
+    // TODO: this is not quite correct, as hash-object should work outside of a git repo,
+    // as long as the -w flag is not provided
+    #[test]
+    fn should_return_failure_if_no_git_repo_found() {
+        let temp_dir = TempDir::new().unwrap();
+
+        Command::cargo_bin("rust-git")
+        .unwrap()
+        .arg("hash-object")
+        .arg("--stdin")
+        .current_dir(temp_dir.path())
+        .write_stdin("test")
+        .assert()
+        .failure()
+        .stderr(format!("not a git repository (or any of the parent directories): \"./.git\""));
     }
  }

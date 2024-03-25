@@ -87,7 +87,7 @@ impl TestGitRepo {
         .write_stdin("test")
         .assert()
         .failure()
-        .stderr(format!("{option} not supported\n"));
+        .stderr(format!("{option} not supported"));
     }
 
     fn decompress_object_file(file: &mut File) -> String {
