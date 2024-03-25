@@ -1,6 +1,6 @@
 use std::io::{self, BufRead};
 
-use crate::{command::GitCommand, object::{GitObjectContents, GitObjectId, GitObjectType}, repo::GitRepo, RustGitError};
+use crate::{command::GitCommand, object::{GitObject, GitObjectId, GitObjectType}, repo::GitRepo, RustGitError};
 
 use super::cli::CatFileArgs;
 
@@ -16,7 +16,13 @@ pub(crate) enum CatFileCommand {
 impl CatFileCommand {
     pub fn new(args: CatFileArgs) -> Result<CatFileCommand, RustGitError> {
         match &args.input[..] {
-            [] => Ok(CatFileCommand::ShowAll()),
+            [] => {
+                if args.batch {
+                    Ok(CatFileCommand::ShowAll())
+                } else {
+                    Err(RustGitError::new(String::from("Provide --batch for batch processing from stdin")))
+                }
+            }
             [object] => {
                 let obj_id = object.parse::<GitObjectId>()?;
                 if args.mode.show_type {
@@ -43,17 +49,16 @@ impl CatFileCommand {
     }
 }
 
-fn show(s: Result<String, std::io::Error>, i: usize, repo: &mut GitRepo) -> Result<GitObjectContents, String> {
+fn show(s: Result<String, std::io::Error>, i: usize, repo: &mut GitRepo) -> Result<GitObject, String> {
     let line = s.map_err(|e| format!("error reading input line {} ({})", i, e))?;
     let obj_id = line.parse::<GitObjectId>().map_err(|e| format!("error parsing object id {line}: ({e})"))?;
     let obj = repo.read_object(&obj_id).map_err(|e| format!("error reading object {}, ({})", obj_id, e))?;
 
     match obj {
-        Some(obj) => Ok(obj),
+        Some(content) => Ok(GitObject { id: obj_id, content: content }),
         None => Err(format!("object {} not found", obj_id)),
     }
 }
-//format!("{} {}\n {}", obj.header.obj_type, obj.header.size, obj.content)),
 impl GitCommand for CatFileCommand {
     fn execute(&self, repo: &mut GitRepo) -> Result<(), RustGitError>
     {
@@ -63,10 +68,10 @@ impl GitCommand for CatFileCommand {
 
                 match obj {
                     Some(obj) => {
-                        println!("{}", obj.header.obj_type);
+                        print!("{}", obj.header.obj_type);
                     },
                     None => {
-                        println!("object {} not found", obj_id);
+                        print!("object {} not found", obj_id);
                     }
                 }
             },
@@ -75,10 +80,10 @@ impl GitCommand for CatFileCommand {
 
                 match obj {
                     Some(obj) => {
-                        println!("{}", obj.header.size);
+                        print!("{}", obj.header.size);
                     },
                     None => {
-                        println!("object {} not found", obj_id);
+                        print!("object {} not found", obj_id);
                     }
                 }
             },
@@ -95,10 +100,10 @@ impl GitCommand for CatFileCommand {
 
                 match obj {
                     Some(obj) => {
-                        println!("{}", obj.content);
+                        print!("{}", obj.content);
                     },
                     None => {
-                        println!("object {} not found", obj_id);
+                        print!("object {} not found", obj_id);
                     }
                 }
             },
@@ -108,10 +113,10 @@ impl GitCommand for CatFileCommand {
 
                 match obj {
                     Some(obj) => {
-                        println!("{}", obj.content);
+                        print!("{}", obj.content);
                     },
                     None => {
-                        println!("object {} not found", obj_id);
+                        print!("object {} not found", obj_id);
                     }
                 }
             }
@@ -119,9 +124,9 @@ impl GitCommand for CatFileCommand {
                 for (i, line) in io::stdin().lock().lines().enumerate() {
                     match show(line, i, repo) {
                         Ok(obj) => 
-                            println!("{} {}\n {}", obj.header.obj_type, obj.header.size, obj.content),
+                            println!("{} {} {}\n{}\n", obj.id, obj.content.header.obj_type, obj.content.header.size, obj.content.content),
                         Err(err) => 
-                            eprintln!("{}", err),
+                            eprint!("{}", err),
                     }
                 }
             }

@@ -37,6 +37,10 @@ pub(crate) struct CatFileArgs {
     #[command(flatten)]
     pub(crate) mode: CatFileMode,
 
+    /// show full <object> or <rev> contents
+    #[arg(long)]
+    pub(crate) batch: bool,
+
     // TODO: We are parsing the type and object as a vector; I couldn't find a better way to
     // represent the way C git handles the cat-file command using Clap.
 
@@ -50,6 +54,6 @@ pub(crate) struct CatFileArgs {
     /// 
     /// The name of the object to show. For a more complete list of ways to spell object names, see the "SPECIFYING
     /// REVISIONS" section in gitrevisions(7).
-    #[arg(value_names=(["type", "object"]), num_args=0..3)]
+    #[arg(value_names=["type", "object"], num_args=0..3)]
     pub(crate) input: Vec<String>,
 }

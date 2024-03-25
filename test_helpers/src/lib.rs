@@ -1,4 +1,4 @@
-use std::{fs::File, io::{Read, Write}};
+use std::{fs::File, io::{Read, Write}, str::from_utf8};
 
 use assert_cmd::Command;
 use assert_fs::{assert::PathAssert, fixture::{ChildPath, PathChild}, TempDir};
@@ -34,6 +34,20 @@ impl TestGitRepo {
         TestGitRepo {
             temp_dir
         }
+    }
+
+    pub fn hash_object(&self, obj: &str) -> String {
+        let cmd = 
+            Command::cargo_bin("rust-git")
+            .unwrap()
+            .arg("hash-object")
+            .arg("--stdin")
+            .arg("-w")
+            .current_dir(self.temp_dir.path())
+            .write_stdin(obj)
+            .unwrap();
+
+        String::from(from_utf8(&cmd.stdout).unwrap().trim())
     }
 
     fn git_dir(&self) -> ChildPath {

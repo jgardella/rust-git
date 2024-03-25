@@ -254,7 +254,7 @@ fn main() -> ExitCode {
     match load_repo_and_execute(cli) {
         Ok(_) => ExitCode::SUCCESS,
         Err(err) => {
-            eprintln!("{}", err.to_string());
+            eprint!("{}", err.to_string());
             ExitCode::FAILURE
         }
     }
