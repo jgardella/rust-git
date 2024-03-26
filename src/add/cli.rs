@@ -2,22 +2,7 @@ use std::path::PathBuf;
 
 use clap::Args;
 
-#[derive(Clone, Debug, PartialEq)]
-pub(crate) enum ChmodFlag {
-    Executable,
-    NonExecutable,
-}
-
-fn parse_chmod_flag(s: &str) -> Result<ChmodFlag, String> {
-    match s {
-        "+x" => Ok(ChmodFlag::Executable),
-        "-x" => Ok(ChmodFlag::NonExecutable),
-        other => {
-            Err(String::from(format!("-chmod param '{other}' must be either -x or +x")))
-        }
-    }
-}
-
+use crate::options::ChmodFlag;
 
 #[derive(Args, Debug)]
 #[command(about = "Add file contents to the index")]
@@ -154,7 +139,7 @@ pub(crate) struct AddArgs {
 
     /// Override the executable bit of the added files. The executable bit is only changed in the index, the files on disk are left
     /// unchanged.
-    #[arg(long, value_parser=parse_chmod_flag)]
+    #[arg(long)]
     pub chmod: Option<ChmodFlag>,
 
     /// Pathspec is passed in <file> instead of commandline args. If <file> is exactly - then standard input is used. Pathspec elements
@@ -167,17 +152,4 @@ pub(crate) struct AddArgs {
     /// taken literally (including newlines and quotes).
     #[arg(long, requires="pathspec_from_file")]
     pub pathspec_file_nul: bool,
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_parse_chmod_flag()
-    {
-        assert_eq!(parse_chmod_flag("+x"), Ok(ChmodFlag::Executable));
-        assert_eq!(parse_chmod_flag("-x"), Ok(ChmodFlag::NonExecutable));
-        assert_eq!(parse_chmod_flag("invalid"), Err(String::from("-chmod param 'invalid' must be either -x or +x")));
-    }
 }
