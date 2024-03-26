@@ -3,9 +3,11 @@ mod command;
 mod config;
 mod error;
 mod hash;
+mod object;
+mod options;
+
 mod init;
 mod hash_object;
-mod object;
 mod add;
 mod cat_file;
 mod update_index;
