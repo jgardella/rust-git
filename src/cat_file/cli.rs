@@ -1,7 +1,7 @@
 use clap::Args;
 
 #[derive(Args, Debug)]
-#[group(multiple=false, requires="input")]
+#[group(multiple=false)]
 pub(crate) struct CatFileMode {
     /// Instead of the content, show the object type identified by <object>.
     #[arg(short('t'))]
@@ -19,6 +19,10 @@ pub(crate) struct CatFileMode {
     /// Pretty-print the contents of <object> based on its type.
     #[arg(short)]
     pub(crate) print: bool,
+
+    /// show full <object> or <rev> contents
+    #[arg(long)]
+    pub(crate) batch: bool,
 }
 
 #[derive(Args, Debug)]
@@ -37,9 +41,6 @@ pub(crate) struct CatFileArgs {
     #[command(flatten)]
     pub(crate) mode: CatFileMode,
 
-    /// show full <object> or <rev> contents
-    #[arg(long)]
-    pub(crate) batch: bool,
 
     // TODO: We are parsing the type and object as a vector; I couldn't find a better way to
     // represent the way C git handles the cat-file command using Clap.

@@ -17,7 +17,7 @@ impl CatFileCommand {
     pub fn new(args: CatFileArgs) -> Result<CatFileCommand, RustGitError> {
         match &args.input[..] {
             [] => {
-                if args.batch {
+                if args.mode.batch {
                     Ok(CatFileCommand::ShowAll())
                 } else {
                     Err(RustGitError::new(String::from("Provide --batch for batch processing from stdin")))
