@@ -5,6 +5,7 @@ mod error;
 mod hash;
 mod object;
 mod options;
+mod index;
 
 mod init;
 mod hash_object;

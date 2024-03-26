@@ -1,6 +1,7 @@
-use std::fs::create_dir_all;
+use std::fs::{create_dir_all, Metadata};
 use std::path::{Path, PathBuf};
 
+use crate::index::GitIndex;
 use crate::object::{GitObject, GitObjectContents, GitObjectId, GitObjectType};
 use crate::{config::GitConfig, error::RustGitError, hash::get_hasher};
 
@@ -25,6 +26,7 @@ impl RepoState {
 
 pub(crate) struct GitRepo {
     pub(crate) config: GitConfig,
+    pub(crate) index: GitIndex,
 }
 
 impl GitRepo {
@@ -37,9 +39,13 @@ impl GitRepo {
         }
 
         let config = GitConfig::new(&git_dir)?;
+        // Loading the index on every repo initialization is inefficient, as it's not always needed
+        // by the command, but it's simple for now.
+        let index = GitIndex::open(&git_dir)?;
 
         Ok(RepoState::Repo(GitRepo {
             config,
+            index,
         }))
     }
 
@@ -94,6 +100,21 @@ impl GitRepo {
         Ok(Some(obj))
     }
 
+    pub(crate) fn index_path(&mut self, path: &str, metadata: &Metadata) -> Result<GitObjectId, RustGitError> {
+        if metadata.is_file() {
+            let mut file = File::open(path)?;
+            let mut content = String::new();
+            file.read_to_string(&mut content)?;
+            return self.index(GitObjectType::Blob, content, true);
+        } else if metadata.is_symlink() {
+            todo!("handle links");
+        } else if metadata.is_dir() {
+            todo!("handle dirs")
+        }
+
+        Err(RustGitError::new("Unsupported file type"))
+    }
+
     pub(crate) fn index(&mut self, obj_type: GitObjectType, content: String, write: bool) -> Result<GitObjectId, RustGitError> {
         // C Git has much more additional logic here, // we just implement the core indexing logic to keep things simple:
         // - C Git implementation: https://github.com/git/git/blob/master/object-file.c#L2448
@@ -110,5 +131,9 @@ impl GitRepo {
         }
 
         Ok(obj.id)
+    }
+
+    pub(crate) fn write_index(&mut self) -> Result<(), RustGitError> {
+        self.index.write(&self.git_dir())
     }
 }

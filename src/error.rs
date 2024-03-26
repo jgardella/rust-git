@@ -48,6 +48,12 @@ impl From<ParseIntError> for RustGitError {
     }
 }
 
+impl From<bincode::Error> for RustGitError {
+    fn from(value: bincode::Error) -> Self {
+        Self::new(format!("{value:?}"))
+    }
+}
+
 impl std::error::Error for RustGitError {}
 
 impl fmt::Display for RustGitError {
