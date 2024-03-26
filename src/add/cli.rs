@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use clap::{Args, ValueEnum};
+use clap::Args;
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) enum ChmodFlag {
