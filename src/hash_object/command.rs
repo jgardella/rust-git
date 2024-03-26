@@ -1,5 +1,5 @@
 use std::{fs::File, io::{self, BufRead, BufReader}};
-use crate::{command::GitCommand, repo::{GitRepo, RepoState}, RustGitError};
+use crate::{command::GitCommand, repo::RepoState, RustGitError};
 
 use super::cli::HashObjectArgs;
 

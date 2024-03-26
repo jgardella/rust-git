@@ -1,14 +1,14 @@
 use std::{fmt, num::ParseIntError};
 use hex::FromHexError;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub(crate) struct RustGitError {
     error: String
 }
 
 impl RustGitError {
-    pub fn new(s: String) -> RustGitError {
-        RustGitError { error: s }
+    pub fn new(s: impl Into<String>) -> RustGitError {
+        RustGitError { error: s.into() }
     }
 }
 
