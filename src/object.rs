@@ -1,6 +1,7 @@
 use std::{fmt::Display, str::FromStr};
 
 use clap::ValueEnum;
+use serde::{Deserialize, Serialize};
 
 use crate::{error::RustGitError, hash::Hasher};
 
@@ -40,7 +41,7 @@ impl FromStr for GitObjectType {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub(crate) struct GitObjectId(String);
 
 impl GitObjectId {
