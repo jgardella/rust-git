@@ -14,7 +14,7 @@ impl FromStr for ChmodFlag {
             "+x" => Ok(ChmodFlag::Executable),
             "-x" => Ok(ChmodFlag::NonExecutable),
             other => {
-                Err(String::from(format!("-chmod option '{other}' must be either -x or +x")))
+                Err(String::from(format!("chmod option '{other}' must be either -x or +x")))
             }
         }
     }
@@ -29,6 +29,6 @@ mod tests {
     {
         assert_eq!("+x".parse(), Ok(ChmodFlag::Executable));
         assert_eq!("-x".parse(), Ok(ChmodFlag::NonExecutable));
-        assert_eq!("invalid".parse::<ChmodFlag>(), Err(String::from("-chmod param 'invalid' must be either -x or +x")));
+        assert_eq!("invalid".parse::<ChmodFlag>(), Err(String::from("chmod option 'invalid' must be either -x or +x")));
     }
 }

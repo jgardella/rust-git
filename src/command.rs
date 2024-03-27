@@ -1,4 +1,4 @@
-use crate::{add::command::AddCommand, cat_file::command::CatFileCommand, error::RustGitError, hash_object::command::HashObjectCommand, init::command::InitCommand, repo::RepoState, update_index::command::UpdateIndexCommand, Cli, CliCommand};
+use crate::{add::command::AddCommand, cat_file::command::CatFileCommand, error::RustGitError, hash_object::command::HashObjectCommand, init::command::InitCommand, repo::RepoState, Cli, CliCommand};
 
 pub(crate) trait GitCommand {
     fn execute(&self, repo_state: RepoState) -> Result<(), RustGitError>;
@@ -19,7 +19,5 @@ pub(crate) fn from_cli(value: Cli) -> Result<Box<dyn GitCommand>, RustGitError> 
             Ok(Box::new(HashObjectCommand::new(args))),
         CliCommand::CatFile(args) => 
             CatFileCommand::new(args).map(|res| Box::new(res) as Box<dyn GitCommand>),
-        CliCommand::UpdateIndex(args) => 
-            Ok(Box::new(UpdateIndexCommand::new(args))),
     }
 }
