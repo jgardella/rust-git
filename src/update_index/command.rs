@@ -25,13 +25,6 @@ fn process_path(path: &str, repo: &mut GitRepo) -> Result<(), RustGitError> {
 }
 
 fn add_one_path(path: &str, metadata: Metadata, repo: &mut GitRepo) -> Result<(), RustGitError> {
-    let index_entry = repo.index.try_find_by_path(&path);
-    // No update needed if current index entry is already up to date.
-    if let Some(index_entry) = index_entry {
-        todo!("check stat details of index entry against current metadata");
-        return Ok(());
-    }
-
     // Write object file.
     let obj_id = repo.index_path(path, &metadata)?;
 
