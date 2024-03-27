@@ -11,12 +11,14 @@ const CONFIG_FILE_NAME: &str = "config";
 // TODO: look into skipping default values when serializing:
 // https://stackoverflow.com/questions/53900612/how-do-i-avoid-generating-json-when-serializing-a-value-that-is-null-or-a-defaul 
 #[derive(Serialize, Deserialize, Debug, Default)]
+#[serde(default)]
 pub(crate) struct GitConfig {
     pub(crate) core: CoreConfig,
     pub(crate) extensions: ExtensionsConfig,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+#[serde(default)]
 pub(crate) struct CoreConfig {
     pub(crate) repositoryformatversion: u32,
     pub(crate) filemode: bool,
@@ -42,6 +44,7 @@ impl Default for CoreConfig {
 }
 
 #[derive(Serialize, Deserialize, Debug, Default)]
+#[serde(default)]
 pub(crate) struct ExtensionsConfig {
     pub(crate) objectformat: HashAlgorithm,
 }

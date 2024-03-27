@@ -1,4 +1,4 @@
-use std::{fmt, num::ParseIntError};
+use std::{array::TryFromSliceError, fmt, num::ParseIntError, string::FromUtf8Error};
 use hex::FromHexError;
 
 #[derive(Debug, PartialEq)]
@@ -50,6 +50,18 @@ impl From<ParseIntError> for RustGitError {
 
 impl From<bincode::Error> for RustGitError {
     fn from(value: bincode::Error) -> Self {
+        Self::new(format!("{value:?}"))
+    }
+}
+
+impl From<TryFromSliceError> for RustGitError {
+    fn from(value: TryFromSliceError) -> Self {
+        Self::new(format!("{value:?}"))
+    }
+}
+
+impl From<FromUtf8Error> for RustGitError {
+    fn from(value: FromUtf8Error) -> Self {
         Self::new(format!("{value:?}"))
     }
 }
