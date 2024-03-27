@@ -11,7 +11,6 @@ mod init;
 mod hash_object;
 mod add;
 mod cat_file;
-mod update_index;
 
 use std::{path::{Path, PathBuf}, process::ExitCode};
 
@@ -24,7 +23,6 @@ use error::RustGitError;
 use hash_object::cli::HashObjectArgs;
 use init::cli::InitArgs;
 use repo::GitRepo;
-use update_index::cli::UpdateIndexArgs;
 
 fn parse_config_override(s: &str) -> Result<(String,String), String> {
     match s.find('=') {
@@ -242,7 +240,6 @@ enum CliCommand {
     Add(AddArgs),
     HashObject(HashObjectArgs),
     CatFile(CatFileArgs),
-    UpdateIndex(UpdateIndexArgs),
 }
 
 fn load_repo_and_execute(cli: Cli) -> Result<(), RustGitError> {
