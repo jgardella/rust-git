@@ -38,7 +38,7 @@ pub(crate) struct AddArgs {
     /// use --no-all option if you want to add modified or new files but ignore removed ones.
     /// 
     /// For more details about the <pathspec> syntax, see the pathspec entry in gitglossary(7).
-    pub pathspec: Option<String>,
+    pub pathspec: Vec<String>,
 
     /// Don’t actually add the file(s), just show if they exist and/or will be ignored.
     #[arg(long, short('n'), conflicts_with="interactive", conflicts_with="patch", conflicts_with="pathspec_from_file")]
