@@ -123,15 +123,12 @@ impl GitIndexMode {
                 [0b00000000, 0b00000000, 0b10000001, 0b11101101],
             (GitIndexObjectType::RegularFile, GitIndexUnixPermission::Permission0644) => 
                 [0b00000000, 0b00000000, 0b10000001, 0b10100100],
-            (GitIndexObjectType::RegularFile, GitIndexUnixPermission::None) => todo!(),
-            (GitIndexObjectType::SymbolicLink, GitIndexUnixPermission::Permission0755) => todo!(),
-            (GitIndexObjectType::SymbolicLink, GitIndexUnixPermission::Permission0644) => todo!(),
             (GitIndexObjectType::SymbolicLink, GitIndexUnixPermission::None) =>
                 [0b00000000, 0b00000000, 0b10100000, 0b00000000],
-            (GitIndexObjectType::GitLink, GitIndexUnixPermission::Permission0755) => todo!(),
-            (GitIndexObjectType::GitLink, GitIndexUnixPermission::Permission0644) => todo!(),
             (GitIndexObjectType::GitLink, GitIndexUnixPermission::None) =>
                 [0b00000000, 0b00000000, 0b11100000, 0b00000000],
+            _ => 
+                panic!("invalid mode during serialization"),
         }
     }
 
@@ -355,7 +352,7 @@ impl GitIndexEntry {
             } else {
                 // If file is executable by owner, we set 755, otherwise 644.
                 let unix_permission = 
-                    if metadata.permissions().mode() | 0b0100 != 0 {
+                    if metadata.permissions().mode() & 0b01000000 != 0 {
                         GitIndexUnixPermission::Permission0755
                     } else {
                         GitIndexUnixPermission::Permission0644
@@ -510,12 +507,27 @@ impl GitIndex {
     }
 }
 
+// TODO: more serialization tests
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn test_should_roundtrip() {
+    fn should_roundtrip_empty() {
+        let test_index = GitIndex {
+            header: GitIndexHeader {
+                version: GitIndexVersion::V2,
+                num_entries: 0,
+            },
+            entries: vec![],
+        };
+
+        let result = GitIndex::deserialize(&GitIndex::serialize(&test_index));
+        assert_eq!(result, Ok(test_index));
+    }
+
+    #[test]
+    fn should_roundtrip() {
         let test_index = GitIndex {
             header: GitIndexHeader {
                 version: GitIndexVersion::V2,
