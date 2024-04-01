@@ -205,12 +205,23 @@ impl GitIndexEntry {
         let flags = GitIndexFlags::deserialize(&bytes[60..62])?;
         println!("flags: {flags:#?}");
 
-        // TODO: can't depend on name_length here, as it won't work if the
-        // name is longer than the maximum
-        let path_name_bytes = &bytes[62..(62+flags.name_length as usize)];
-        let path_name = String::from_utf8(path_name_bytes.to_vec())?;
+        let path_name_bytes = {
+            if flags.name_length < 0xFFF {
+                Ok(&bytes[62..(62+flags.name_length as usize)])
+            } else {
+                if let Some(null_index) = &bytes[62..].iter().position(|&b| b != b'\0') {
+                    Ok(&bytes[62..null_index+1])
+                } else {
+                    Err(RustGitError::new("missing null byte for path name"))
+                }
+            }
 
-        let processed_bytes = 63 + flags.name_length as usize;
+        }?;
+
+        let path_name = String::from_utf8(path_name_bytes.to_vec())?;
+        println!("path_name: {path_name:?}");
+
+        let processed_bytes = 62 + path_name_bytes.len();
         let padding = {
             let remainder = processed_bytes % 8;
             if remainder == 0 {
