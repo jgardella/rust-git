@@ -1,11 +1,10 @@
 /// All binary numbers are in network byte order.
 
-use std::{fs::{self, File, Metadata}, os::unix::fs::{MetadataExt, PermissionsExt}, path::{Path, PathBuf}};
-
-
+use std::{fs::{self, File, Metadata}, io::Write, os::unix::fs::{MetadataExt, PermissionsExt}, path::{Path, PathBuf}};
 use sha1::{Digest, Sha1};
+use crate::{error::RustGitError, object::GitObjectId};
 
-use crate::{error::RustGitError, hash::Hasher, object::GitObjectId};
+const INDEX_HEADER_SIGNATURE: &[u8; 4] = b"DIRC";
 
 fn as_u32_be(array: &[u8; 4]) -> u32 {
     ((array[0] as u32) << 24) +
@@ -28,6 +27,12 @@ pub(crate) enum GitIndexVersion {
 }
 
 impl GitIndexVersion {
+    pub(crate) fn serialize(index_version: &GitIndexVersion) -> [u8; 4] {
+        match index_version {
+            GitIndexVersion::V2 => (2 as u32).to_be_bytes()
+        }
+    }
+
     pub(crate) fn deserialize(bytes: &[u8; 4]) -> Result<GitIndexVersion, RustGitError> {
         match as_u32_be(bytes) {
             2 => Ok(GitIndexVersion::V2),
@@ -43,11 +48,20 @@ pub(crate) struct GitIndexHeader {
 }
 
 impl GitIndexHeader {
+    pub(crate) fn serialize(header: &GitIndexHeader) -> [u8; 12] {
+        let mut bytes: [u8; 12] = [0; 12];
+        bytes[0..4].copy_from_slice(INDEX_HEADER_SIGNATURE);
+        bytes[4..8].copy_from_slice(&GitIndexVersion::serialize(&header.version));
+        bytes[8..12].copy_from_slice(&header.num_entries.to_be_bytes());
+
+        bytes
+    }
+
     pub(crate) fn deserialize(bytes: &[u8]) -> Result<GitIndexHeader, RustGitError> {
         let bytes: [u8; 12] = bytes.try_into()?;
         // 4-byte signature:
         // The signature is { 'D', 'I', 'R', 'C' } (stands for "dircache")
-        if &bytes[0..4] != b"DIRC" {
+        if &bytes[0..4] != INDEX_HEADER_SIGNATURE {
             return Err(RustGitError::new("missing header signature in index file"));
         }
         Ok(GitIndexHeader {
@@ -71,6 +85,13 @@ pub(crate) struct GitIndexTimestamp {
 }
 
 impl GitIndexTimestamp {
+    pub(crate) fn serialize(timestamp: &GitIndexTimestamp) -> [u8; 8] {
+        let mut bytes: [u8; 8] = [0; 8];
+        &bytes[0..4].copy_from_slice(&timestamp.seconds.to_be_bytes());
+        &bytes[4..8].copy_from_slice(&timestamp.nanoseconds.to_be_bytes());
+        bytes
+    }
+
     pub(crate) fn deserialize(bytes: &[u8]) -> Result<GitIndexTimestamp, RustGitError> {
         let seconds_bytes = bytes[0..4].try_into()?;
         let nanoseconds_bytes = bytes[4..8].try_into()?;
@@ -96,6 +117,24 @@ pub(crate) struct GitIndexMode {
 }
 
 impl GitIndexMode {
+    pub(crate) fn serialize(mode: &GitIndexMode) -> [u8; 4] {
+        match (&mode.obj_type, &mode.unix_permission) {
+            (GitIndexObjectType::RegularFile, GitIndexUnixPermission::Permission0755) => 
+                [0b00000000, 0b00000000, 0b10000001, 0b11101101],
+            (GitIndexObjectType::RegularFile, GitIndexUnixPermission::Permission0644) => 
+                [0b00000000, 0b00000000, 0b10000001, 0b10100100],
+            (GitIndexObjectType::RegularFile, GitIndexUnixPermission::None) => todo!(),
+            (GitIndexObjectType::SymbolicLink, GitIndexUnixPermission::Permission0755) => todo!(),
+            (GitIndexObjectType::SymbolicLink, GitIndexUnixPermission::Permission0644) => todo!(),
+            (GitIndexObjectType::SymbolicLink, GitIndexUnixPermission::None) =>
+                [0b00000000, 0b00000000, 0b10100000, 0b00000000],
+            (GitIndexObjectType::GitLink, GitIndexUnixPermission::Permission0755) => todo!(),
+            (GitIndexObjectType::GitLink, GitIndexUnixPermission::Permission0644) => todo!(),
+            (GitIndexObjectType::GitLink, GitIndexUnixPermission::None) =>
+                [0b00000000, 0b00000000, 0b11100000, 0b00000000],
+        }
+    }
+
     pub(crate) fn deserialize(bytes: &[u8]) -> Result<GitIndexMode, RustGitError> {
         let bytes: [u8; 4] = bytes.try_into()?;
         let (obj_type, unix_permission) =
@@ -133,6 +172,28 @@ pub(crate) struct GitIndexFlags {
 } 
 
 impl GitIndexFlags {
+    pub(crate) fn serialize(flags: &GitIndexFlags) -> [u8; 2] {
+        let mut first_byte: u8 = 0;
+        if flags.assume_valid {
+            first_byte |= 0b10000000;
+        }
+        if flags.extended {
+            first_byte |= 0b01000000;
+        }
+
+        match flags.stage {
+            GitIndexStageFlag::RegularFileNoConflict => (),
+            GitIndexStageFlag::Base => first_byte |= 0b00010000,
+            GitIndexStageFlag::Ours => first_byte |= 0b00100000,
+            GitIndexStageFlag::Theirs => first_byte |= 0b00110000,
+        };
+
+        let name_length_bytes = flags.name_length.to_be_bytes();
+        first_byte |= name_length_bytes[0] & 0b00001111;
+
+        [first_byte, name_length_bytes[1]]
+    }
+
     pub(crate) fn deserialize(bytes: &[u8]) -> Result<GitIndexFlags, RustGitError> {
         let bytes: &[u8; 2] = bytes.try_into()?;
         let assume_valid = bytes[0] & 0b10000000 != 0;
@@ -182,6 +243,40 @@ pub(crate) struct GitIndexEntry {
 }
 
 impl GitIndexEntry {
+    pub(crate) fn serialize(entry: &GitIndexEntry) -> Vec<u8> {
+        let mut fixed: [u8; 62] = [0; 62];
+        &fixed[0..8].copy_from_slice(&GitIndexTimestamp::serialize(&entry.last_metadata_update));
+        &fixed[8..16].copy_from_slice(&GitIndexTimestamp::serialize(&entry.last_data_update));
+        &fixed[16..20].copy_from_slice(&entry.dev.to_be_bytes());
+        &fixed[20..24].copy_from_slice(&entry.ino.to_be_bytes());
+        &fixed[24..28].copy_from_slice(&GitIndexMode::serialize(&entry.mode));
+        &fixed[28..32].copy_from_slice(&entry.uid.to_be_bytes());
+        &fixed[32..36].copy_from_slice(&entry.gid.to_be_bytes());
+        &fixed[36..40].copy_from_slice(&entry.file_size.to_be_bytes());
+        &fixed[40..60].copy_from_slice(&GitObjectId::serialize(&entry.name));
+        &fixed[60..62].copy_from_slice(&GitIndexFlags::serialize(&entry.flags));
+
+        let path_name_bytes = entry.path_name.as_bytes().to_vec();
+        let padding_byte_count = {
+            let remainder = path_name_bytes.len() % 8;
+            if remainder == 0 {
+                8
+            } else {
+                8 - remainder
+            }
+        };
+
+        let padding_bytes: Vec<u8> = std::iter::repeat(b'\0').take(padding_byte_count).collect();
+
+        let mut bytes = vec![];
+
+        bytes.extend_from_slice(&fixed);
+        bytes.extend_from_slice(&path_name_bytes);
+        bytes.extend_from_slice(&padding_bytes);
+
+        bytes
+    }
+
     pub(crate) fn deserialize(bytes: &[u8]) -> Result<(GitIndexEntry, usize), RustGitError> {
         println!("start");
         let last_metadata_update = GitIndexTimestamp::deserialize(&bytes[0..8])?;
@@ -299,7 +394,6 @@ impl GitIndexEntry {
 pub(crate) struct GitIndex {
     header: GitIndexHeader,
     entries: Vec<GitIndexEntry>,
-    checksum: GitObjectId,
 }
 
 impl Default for GitIndex {
@@ -310,13 +404,32 @@ impl Default for GitIndex {
                 num_entries: 0,
             },
             entries: vec![],
-            checksum: GitObjectId::new(String::from("")),
         }
     }
 }
 
 impl GitIndex {
     // Reference for Git index binary format: https://git-scm.com/docs/index-format
+    pub(crate) fn serialize(index: &GitIndex) -> Vec<u8> {
+        let mut bytes = vec![];
+        let header_bytes = GitIndexHeader::serialize(&index.header);
+        bytes.extend_from_slice(&header_bytes);
+
+        for entry in &index.entries {
+            let entry_bytes = GitIndexEntry::serialize(entry);
+            bytes.extend_from_slice(&entry_bytes);
+        }
+
+        // Skipping extensions for now.
+
+        let mut hasher = Sha1::new();
+        hasher.update(&bytes);
+        let checksum = hasher.finalize().to_vec();
+        bytes.extend_from_slice(&checksum);
+
+        bytes
+    }
+
     pub(crate) fn deserialize(bytes: &[u8]) -> Result<GitIndex, RustGitError> {
         let header = GitIndexHeader::deserialize(&bytes[0..12])?;
 
@@ -346,7 +459,6 @@ impl GitIndex {
         Ok(GitIndex {
             header,
             entries,
-            checksum,
         })
     }
 
@@ -368,10 +480,9 @@ impl GitIndex {
     pub(crate) fn write(&mut self, git_dir: &Path) -> Result<(), RustGitError> {
         let mut index_file = File::create(&git_dir.join(DEFAULT_INDEX_NAME))?;
 
-        // TODO: custom serialize
-        // let serialized = bincode::serialize(&self)?;
+        let serialized = GitIndex::serialize(&self);
 
-        // index_file.write(&serialized)?;
+        index_file.write(&serialized)?;
 
         Ok(())
     }
