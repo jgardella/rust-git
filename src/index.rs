@@ -145,7 +145,7 @@ impl GitIndexFlags {
             } else {
                 GitIndexStageFlag::RegularFileNoConflict
             };
-        let name_length = as_u16_be(&[bytes[0] | 0b00001111, bytes[1]]);
+        let name_length = as_u16_be(&[bytes[0] & 0b00001111, bytes[1]]);
 
         Ok(GitIndexFlags {
             assume_valid,
@@ -203,11 +203,22 @@ impl GitIndexEntry {
         let flags = GitIndexFlags::deserialize(&bytes[60..62])?;
         println!("flags: {flags:#?}");
 
-        let path_name_bytes = &bytes[62..(63+flags.name_length as usize)];
-        let path_name= String::from_utf8(path_name_bytes.to_vec())?;
+        // TODO: can't depend on name_length here, as it won't work if the
+        // name is longer than the maximum
+        let path_name_bytes = &bytes[62..(62+flags.name_length as usize)];
+        let path_name = String::from_utf8(path_name_bytes.to_vec())?;
 
         let processed_bytes = 63 + flags.name_length as usize;
-        let padded_processed_bytes = processed_bytes + (processed_bytes % 8);
+        let padding = {
+            let remainder = processed_bytes % 8;
+            if remainder == 0 {
+                8
+            } else {
+                8 - remainder
+            }
+        };
+
+        let padded_processed_bytes = processed_bytes + padding;
 
         Ok((GitIndexEntry {
             last_metadata_update,
@@ -296,7 +307,7 @@ impl GitIndex {
 
         let mut entries = Vec::new();
         let mut entry_start = 12;
-        while entry_start < bytes.len() {
+        for _ in 0..header.num_entries {
             let (entry , processed_bytes) = GitIndexEntry::deserialize(&bytes[entry_start..])?;
             entries.push(entry);
             entry_start += processed_bytes;
