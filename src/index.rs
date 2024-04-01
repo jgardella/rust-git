@@ -198,7 +198,7 @@ impl GitIndexEntry {
         println!("gid: {gid:#?}");
         let file_size = as_u32_be(&bytes[36..40].try_into()?);
         println!("file_size: {file_size:#?}");
-        let name = GitObjectId::new(String::from_utf8(bytes[40..60].to_vec())?);
+        let name = GitObjectId::deserialize(&bytes[40..60])?;
         println!("name: {name:#?}");
         let flags = GitIndexFlags::deserialize(&bytes[60..62])?;
         println!("flags: {flags:#?}");
