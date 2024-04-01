@@ -3,7 +3,9 @@
 use std::{fs::{self, File, Metadata}, os::unix::fs::{MetadataExt, PermissionsExt}, path::{Path, PathBuf}};
 
 
-use crate::{error::RustGitError, object::GitObjectId};
+use sha1::{Digest, Sha1};
+
+use crate::{error::RustGitError, hash::Hasher, object::GitObjectId};
 
 fn as_u32_be(array: &[u8; 4]) -> u32 {
     ((array[0] as u32) << 24) +
@@ -286,6 +288,7 @@ impl GitIndexEntry {
 pub(crate) struct GitIndex {
     header: GitIndexHeader,
     entries: Vec<GitIndexEntry>,
+    checksum: GitObjectId,
 }
 
 impl Default for GitIndex {
@@ -296,6 +299,7 @@ impl Default for GitIndex {
                 num_entries: 0,
             },
             entries: vec![],
+            checksum: GitObjectId::new(String::from("")),
         }
     }
 }
@@ -313,9 +317,25 @@ impl GitIndex {
             entry_start += processed_bytes;
         }
 
+        // Skipping extensions for now.
+
+        // Checksum will always be last 20 bytes 
+        // TODO: use separate SHA type
+        let checksum = GitObjectId::deserialize(&bytes[bytes.len()-20..])?;
+        println!("checksum: {checksum:?}");
+        let mut hasher = Sha1::new();
+        hasher.update(&bytes[..bytes.len()-20]);
+        let hash = hasher.finalize();
+        let computed_checksum = GitObjectId::deserialize(&hash)?;
+
+        if checksum != computed_checksum {
+            return Err(RustGitError::new(format!("Index checksum {checksum} doesn't match computed hash {computed_checksum}")));
+        }
+
         Ok(GitIndex {
             header,
             entries,
+            checksum,
         })
     }
 
