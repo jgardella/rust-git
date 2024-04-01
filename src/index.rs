@@ -2,7 +2,7 @@
 
 use std::{fs::{self, File, Metadata}, io::Write, os::unix::fs::{MetadataExt, PermissionsExt}, path::{Path, PathBuf}};
 use sha1::{Digest, Sha1};
-use crate::{error::RustGitError, object::GitObjectId};
+use crate::{error::RustGitError, hash::Hasher, object::GitObjectId};
 
 const INDEX_HEADER_SIGNATURE: &[u8; 4] = b"DIRC";
 
@@ -257,8 +257,7 @@ impl GitIndexEntry {
         fixed[40..60].copy_from_slice(&GitObjectId::serialize(&entry.name));
         fixed[60..62].copy_from_slice(&GitIndexFlags::serialize(&entry.flags));
 
-        let mut path_name_bytes = entry.path_name.as_bytes().to_vec();
-        path_name_bytes.push(b'\0');
+        let path_name_bytes = entry.path_name.as_bytes().to_vec();
         let padding_byte_count = {
             let remainder = (62 + path_name_bytes.len()) % 8;
             if remainder == 0 {
@@ -388,7 +387,7 @@ impl GitIndexEntry {
                 assume_valid: false,
                 extended: false,
                 stage: GitIndexStageFlag::RegularFileNoConflict,
-                name_length: 0,
+                name_length: path.len() as u16,
             },
             path_name: String::from(path),
         }
@@ -429,8 +428,9 @@ impl GitIndex {
 
         let mut hasher = Sha1::new();
         hasher.update(&bytes);
-        let checksum = hasher.finalize().to_vec();
-        bytes.extend_from_slice(&checksum);
+        let checksum = hasher.final_oid_fn();
+        println!("serializer checksum: {checksum:?}");
+        bytes.extend_from_slice(&GitObjectId::serialize(&checksum));
 
         bytes
     }
@@ -497,7 +497,10 @@ impl GitIndex {
 
         match existing_entry {
             Some(existing) => *existing = index_entry,
-            None => self.entries.push(index_entry)
+            None => {
+                self.header.num_entries += 1;
+                self.entries.push(index_entry)
+            }
         }
     }
 
