@@ -21,7 +21,7 @@ fn as_u16_be(array: &[u8; 2]) -> u16 {
 const DEFAULT_INDEX_NAME: &str = "index";
 
 // Only supporting V2 for now.
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub(crate) enum GitIndexVersion {
     V2,
 }
@@ -41,7 +41,7 @@ impl GitIndexVersion {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub(crate) struct GitIndexHeader {
     version: GitIndexVersion,
     num_entries: u32,
@@ -71,14 +71,14 @@ impl GitIndexHeader {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub(crate) enum GitIndexObjectType {
     RegularFile,
     SymbolicLink,
     GitLink,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub(crate) struct GitIndexTimestamp {
     seconds: u32,
     nanoseconds: u32,
@@ -87,8 +87,8 @@ pub(crate) struct GitIndexTimestamp {
 impl GitIndexTimestamp {
     pub(crate) fn serialize(timestamp: &GitIndexTimestamp) -> [u8; 8] {
         let mut bytes: [u8; 8] = [0; 8];
-        &bytes[0..4].copy_from_slice(&timestamp.seconds.to_be_bytes());
-        &bytes[4..8].copy_from_slice(&timestamp.nanoseconds.to_be_bytes());
+        bytes[0..4].copy_from_slice(&timestamp.seconds.to_be_bytes());
+        bytes[4..8].copy_from_slice(&timestamp.nanoseconds.to_be_bytes());
         bytes
     }
 
@@ -103,14 +103,14 @@ impl GitIndexTimestamp {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub(crate) enum GitIndexUnixPermission {
     Permission0755,
     Permission0644,
     None,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub(crate) struct GitIndexMode {
     obj_type: GitIndexObjectType,
     unix_permission: GitIndexUnixPermission,
@@ -163,7 +163,7 @@ pub(crate) enum GitIndexStageFlag {
     Theirs,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub(crate) struct GitIndexFlags {
     assume_valid: bool,
     extended: bool,
@@ -223,6 +223,7 @@ impl GitIndexFlags {
 /// interpreted as a string of unsigned bytes (i.e. memcmp() order, no
 /// localization, no special casing of directory separator '/'). Entries
 /// with the same name are sorted by their stage field.
+#[derive(Debug, PartialEq)]
 pub(crate) struct GitIndexEntry {
     last_metadata_update: GitIndexTimestamp,
     last_data_update: GitIndexTimestamp,
@@ -245,26 +246,29 @@ pub(crate) struct GitIndexEntry {
 impl GitIndexEntry {
     pub(crate) fn serialize(entry: &GitIndexEntry) -> Vec<u8> {
         let mut fixed: [u8; 62] = [0; 62];
-        &fixed[0..8].copy_from_slice(&GitIndexTimestamp::serialize(&entry.last_metadata_update));
-        &fixed[8..16].copy_from_slice(&GitIndexTimestamp::serialize(&entry.last_data_update));
-        &fixed[16..20].copy_from_slice(&entry.dev.to_be_bytes());
-        &fixed[20..24].copy_from_slice(&entry.ino.to_be_bytes());
-        &fixed[24..28].copy_from_slice(&GitIndexMode::serialize(&entry.mode));
-        &fixed[28..32].copy_from_slice(&entry.uid.to_be_bytes());
-        &fixed[32..36].copy_from_slice(&entry.gid.to_be_bytes());
-        &fixed[36..40].copy_from_slice(&entry.file_size.to_be_bytes());
-        &fixed[40..60].copy_from_slice(&GitObjectId::serialize(&entry.name));
-        &fixed[60..62].copy_from_slice(&GitIndexFlags::serialize(&entry.flags));
+        fixed[0..8].copy_from_slice(&GitIndexTimestamp::serialize(&entry.last_metadata_update));
+        fixed[8..16].copy_from_slice(&GitIndexTimestamp::serialize(&entry.last_data_update));
+        fixed[16..20].copy_from_slice(&entry.dev.to_be_bytes());
+        fixed[20..24].copy_from_slice(&entry.ino.to_be_bytes());
+        fixed[24..28].copy_from_slice(&GitIndexMode::serialize(&entry.mode));
+        fixed[28..32].copy_from_slice(&entry.uid.to_be_bytes());
+        fixed[32..36].copy_from_slice(&entry.gid.to_be_bytes());
+        fixed[36..40].copy_from_slice(&entry.file_size.to_be_bytes());
+        fixed[40..60].copy_from_slice(&GitObjectId::serialize(&entry.name));
+        fixed[60..62].copy_from_slice(&GitIndexFlags::serialize(&entry.flags));
 
-        let path_name_bytes = entry.path_name.as_bytes().to_vec();
+        let mut path_name_bytes = entry.path_name.as_bytes().to_vec();
+        path_name_bytes.push(b'\0');
         let padding_byte_count = {
-            let remainder = path_name_bytes.len() % 8;
+            let remainder = (62 + path_name_bytes.len()) % 8;
             if remainder == 0 {
                 8
             } else {
                 8 - remainder
             }
         };
+
+        println!("padding_byte_count: {padding_byte_count}");
 
         let padding_bytes: Vec<u8> = std::iter::repeat(b'\0').take(padding_byte_count).collect();
 
@@ -391,6 +395,7 @@ impl GitIndexEntry {
     }
 }
 
+#[derive(Debug, PartialEq)]
 pub(crate) struct GitIndex {
     header: GitIndexHeader,
     entries: Vec<GitIndexEntry>,
@@ -446,7 +451,6 @@ impl GitIndex {
         // Checksum will always be last 20 bytes 
         // TODO: use separate SHA type
         let checksum = GitObjectId::deserialize(&bytes[bytes.len()-20..])?;
-        println!("checksum: {checksum:?}");
         let mut hasher = Sha1::new();
         hasher.update(&bytes[..bytes.len()-20]);
         let hash = hasher.finalize();
@@ -501,4 +505,82 @@ impl GitIndex {
         // TODO: make this more efficient
         self.entries.iter().find(|item| item.path_name == path)
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_should_roundtrip() {
+        let test_index = GitIndex {
+            header: GitIndexHeader {
+                version: GitIndexVersion::V2,
+                num_entries: 2,
+            },
+            entries: vec![
+                GitIndexEntry { 
+                    last_metadata_update: GitIndexTimestamp {
+                        seconds: 50,
+                        nanoseconds: 150,
+                    },
+                    last_data_update: GitIndexTimestamp {
+                        seconds: 100,
+                        nanoseconds: 200,
+
+                    },
+                    dev: 1,
+                    ino: 2, 
+                    mode: GitIndexMode { 
+                        obj_type: GitIndexObjectType::RegularFile, 
+                        unix_permission: GitIndexUnixPermission::Permission0644,
+                    }, 
+                    uid: 3, 
+                    gid: 4, 
+                    file_size: 5, 
+                    name: GitObjectId::new(String::from("9daeafb9864cf43055ae93beb0afd6c7d144bfa4")),
+                    flags: GitIndexFlags {
+                        assume_valid: false,
+                        extended: false,
+                        stage: GitIndexStageFlag::RegularFileNoConflict,
+                        name_length: 8,
+                    }, 
+                    path_name: String::from("test.txt")
+                },
+                GitIndexEntry { 
+                    last_metadata_update: GitIndexTimestamp {
+                        seconds: 50,
+                        nanoseconds: 150,
+                    },
+                    last_data_update: GitIndexTimestamp {
+                        seconds: 100,
+                        nanoseconds: 200,
+
+                    },
+                    dev: 1,
+                    ino: 2, 
+                    mode: GitIndexMode { 
+                        obj_type: GitIndexObjectType::RegularFile, 
+                        unix_permission: GitIndexUnixPermission::Permission0644,
+                    }, 
+                    uid: 3, 
+                    gid: 4, 
+                    file_size: 5, 
+                    name: GitObjectId::new(String::from("180cf8328022becee9aaa2577a8f84ea2b9f3827")),
+                    flags: GitIndexFlags {
+                        assume_valid: false,
+                        extended: false,
+                        stage: GitIndexStageFlag::RegularFileNoConflict,
+                        name_length: 9,
+                    }, 
+                    path_name: String::from("test2.txt")
+                },
+
+            ],
+        };
+
+        let result = GitIndex::deserialize(&GitIndex::serialize(&test_index));
+        assert_eq!(result, Ok(test_index));
+    }
+
 }
