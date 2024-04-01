@@ -52,6 +52,13 @@ impl GitObjectId {
     pub(crate) fn folder_and_file_name(&self) -> (&str, &str) {
         self.0.split_at(2)
     }
+
+    pub(crate) fn deserialize(bytes: &[u8]) -> Result<GitObjectId, RustGitError> {
+        let bytes: &[u8; 20] = bytes.try_into()?;
+        let s = hex::encode(bytes);
+        Ok(GitObjectId(s))
+    }
+
 }
 
 impl Display for GitObjectId {
