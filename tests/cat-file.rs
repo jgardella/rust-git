@@ -1,4 +1,3 @@
-#[cfg(test)]
 mod integration_tests {
 
     use assert_cmd::{Command, prelude::OutputAssertExt};
@@ -7,7 +6,8 @@ mod integration_tests {
 
     #[test]
     fn should_return_content_for_object_and_type() {
-        let test_git_repo = TestGitRepo::init();
+        let test_git_repo = TestGitRepo::new();
+        test_git_repo.init();
 
         let content = "test";
         let obj_id = test_git_repo.hash_object(content);
@@ -28,7 +28,8 @@ mod integration_tests {
 
     #[test]
     fn should_return_content_for_object_with_print_flag() {
-        let test_git_repo = TestGitRepo::init();
+        let test_git_repo = TestGitRepo::new();
+        test_git_repo.init();
 
         let content = "test";
         let obj_id = test_git_repo.hash_object(content);
@@ -49,7 +50,8 @@ mod integration_tests {
 
     #[test]
     fn should_return_type_for_object_with_type_flag() {
-        let test_git_repo = TestGitRepo::init();
+        let test_git_repo = TestGitRepo::new();
+        test_git_repo.init();
 
         let content = "test";
         let obj_id = test_git_repo.hash_object(content);
@@ -71,7 +73,8 @@ mod integration_tests {
 
     #[test]
     fn should_return_size_for_object_with_size_flag() {
-        let test_git_repo = TestGitRepo::init();
+        let test_git_repo = TestGitRepo::new();
+        test_git_repo.init();
 
         let content = "test";
         let obj_id = test_git_repo.hash_object(content);
@@ -92,7 +95,8 @@ mod integration_tests {
 
     #[test]
     fn should_return_info_for_multiple_objects_in_batch_mode() {
-        let test_git_repo = TestGitRepo::init();
+        let test_git_repo = TestGitRepo::new();
+        test_git_repo.init();
 
         let content1 = "test1";
         let obj_id1 = test_git_repo.hash_object(content1);
@@ -119,7 +123,8 @@ mod integration_tests {
 
     #[test]
     fn should_return_success_exit_code_for_object_with_check_flag() {
-        let test_git_repo = TestGitRepo::init();
+        let test_git_repo = TestGitRepo::new();
+        test_git_repo.init();
 
         let content = "test";
         let obj_id = test_git_repo.hash_object(content);
@@ -139,7 +144,8 @@ mod integration_tests {
 
     #[test]
     fn should_return_failure_status_code_with_check_flag_and_missing_object() {
-        let test_git_repo = TestGitRepo::init();
+        let test_git_repo = TestGitRepo::new();
+        test_git_repo.init();
         let obj_id = "not-an-object-id";
 
         Command::cargo_bin("rust-git")
@@ -155,7 +161,7 @@ mod integration_tests {
 
     #[test]
     fn should_return_failure_if_no_git_repo_found() {
-        let temp_dir = TempDir::new().unwrap();
+        let test_git_repo = TestGitRepo::new();
         let obj_id = "not-an-object-id";
 
         Command::cargo_bin("rust-git")
@@ -163,7 +169,7 @@ mod integration_tests {
         .arg("cat-file")
         .arg("blob")
         .arg(obj_id)
-        .current_dir(temp_dir.path())
+        .current_dir(test_git_repo.temp_dir.path())
         .assert()
         .failure()
         .stderr(format!("not a git repository (or any of the parent directories): \"./.git\""));

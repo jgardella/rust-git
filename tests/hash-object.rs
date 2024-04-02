@@ -1,4 +1,3 @@
-#[cfg(test)]
 mod integration_tests {
 
     use assert_cmd::{Command, prelude::OutputAssertExt};
@@ -7,7 +6,8 @@ mod integration_tests {
 
     #[test]
     fn should_return_and_write_expected_hash_from_stdin() {
-        let test_git_repo = TestGitRepo::init();
+        let test_git_repo = TestGitRepo::new();
+        test_git_repo.init();
 
         let cmd = 
             Command::cargo_bin("rust-git")
@@ -28,7 +28,8 @@ mod integration_tests {
 
     #[test]
     fn should_not_write_if_flag_missing() {
-        let test_git_repo = TestGitRepo::init();
+        let test_git_repo = TestGitRepo::new();
+        test_git_repo.init();
 
         let cmd = 
             Command::cargo_bin("rust-git")
@@ -48,7 +49,8 @@ mod integration_tests {
 
     #[test]
     fn should_return_and_write_expected_hash_from_files() {
-        let test_git_repo = TestGitRepo::init();
+        let test_git_repo = TestGitRepo::new();
+        test_git_repo.init();
 
         let test_file_name1 = "test-file-1.txt";
         test_git_repo.temp_dir.create_test_file(test_file_name1, b"test1");
@@ -75,7 +77,8 @@ mod integration_tests {
 
     #[test]
     fn should_return_and_write_expected_hash_from_stdin_paths() {
-        let test_git_repo = TestGitRepo::init();
+        let test_git_repo = TestGitRepo::new();
+        test_git_repo.init();
 
         let test_file_name1 = "test-file-1.txt";
         test_git_repo.temp_dir.create_test_file(test_file_name1, b"test1");
@@ -102,7 +105,8 @@ mod integration_tests {
 
     #[test]
     fn should_fail_if_unsupported_options_provided() {
-        let test_git_repo = TestGitRepo::init();
+        let test_git_repo = TestGitRepo::new();
+        test_git_repo.init();
 
         test_git_repo.assert_unsupported_option("hash-object", vec!["--no-filters"]);
         test_git_repo.assert_unsupported_option("hash-object", vec!["--path", "my-path"]);
@@ -113,13 +117,13 @@ mod integration_tests {
     // as long as the -w flag is not provided
     #[test]
     fn should_return_failure_if_no_git_repo_found() {
-        let temp_dir = TempDir::new().unwrap();
+        let test_git_repo = TestGitRepo::new();
 
         Command::cargo_bin("rust-git")
         .unwrap()
         .arg("hash-object")
         .arg("--stdin")
-        .current_dir(temp_dir.path())
+        .current_dir(test_git_repo.temp_dir.path())
         .write_stdin("test")
         .assert()
         .failure()
