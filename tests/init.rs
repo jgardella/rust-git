@@ -1,10 +1,10 @@
-#[cfg(test)]
 mod integration_tests {
     use std::fs;
 
     use assert_fs::{prelude::*, fixture::ChildPath};
     use predicates::prelude::*;
     use assert_cmd::{Command, prelude::OutputAssertExt};
+    use test_helpers::TestGitRepo;
 
     fn assert_git_init_files(git_dir: &ChildPath, expected_head: Option<&str>) {
         let expected_head = format!("ref: refs/heads/{}", expected_head.unwrap_or("main"));
@@ -51,16 +51,16 @@ mod integration_tests {
 
     #[test]
     fn should_create_expected_dirs() {
-        let temp_dir = assert_fs::TempDir::new().unwrap();
+        let test_git_repo = TestGitRepo::new();
 
         let cmd = 
             Command::cargo_bin("rust-git")
             .unwrap()
             .arg("init")
-            .current_dir(temp_dir.path())
+            .current_dir(test_git_repo.temp_dir.path())
             .unwrap();
 
-        let git_dir = temp_dir.child(".git");
+        let git_dir = test_git_repo.git_dir();
         let canonical_git_dir = fs::canonicalize(&git_dir).unwrap();
         let git_dir_display = canonical_git_dir.display();
 
@@ -73,17 +73,17 @@ mod integration_tests {
 
     #[test]
     fn should_create_expected_files_with_custom_initial_branch() {
-        let temp_dir = assert_fs::TempDir::new().unwrap();
+        let test_git_repo = TestGitRepo::new();
 
         let cmd = 
             Command::cargo_bin("rust-git")
             .unwrap()
             .arg("init")
             .arg("-b=my-branch")
-            .current_dir(temp_dir.path())
+            .current_dir(test_git_repo.temp_dir.path())
             .unwrap();
 
-        let git_dir = temp_dir.child(".git");
+        let git_dir = test_git_repo.git_dir();
         let canonical_git_dir = fs::canonicalize(&git_dir).unwrap();
         let git_dir_display = canonical_git_dir.display();
 
@@ -96,17 +96,17 @@ mod integration_tests {
 
     #[test]
     fn should_create_expected_dirs_with_directory_specified() {
-        let temp_dir = assert_fs::TempDir::new().unwrap();
+        let test_git_repo = TestGitRepo::new();
 
         let cmd = 
             Command::cargo_bin("rust-git")
             .unwrap()
             .arg("init")
             .arg("my_project")
-            .current_dir(temp_dir.path())
+            .current_dir(test_git_repo.temp_dir.path())
             .unwrap();
 
-        let project_dir = temp_dir.child("my_project");
+        let project_dir = test_git_repo.temp_dir.child("my_project");
         let git_dir = project_dir.child(".git");
         let canonical_git_dir = fs::canonicalize(&git_dir).unwrap();
         let git_dir_display = canonical_git_dir.display();
@@ -121,17 +121,17 @@ mod integration_tests {
 
     #[test]
     fn should_create_expected_dirs_with_directory_specified_nested() {
-        let temp_dir = assert_fs::TempDir::new().unwrap();
+        let test_git_repo = TestGitRepo::new();
 
         let cmd = 
             Command::cargo_bin("rust-git")
             .unwrap()
             .arg("init")
             .arg("my/great/project")
-            .current_dir(temp_dir.path())
+            .current_dir(test_git_repo.temp_dir.path())
             .unwrap();
 
-        let project_dir = temp_dir.child("my/great/project");
+        let project_dir = test_git_repo.temp_dir.child("my/great/project");
         let git_dir = project_dir.child(".git");
         let canonical_git_dir = fs::canonicalize(&git_dir).unwrap();
         let git_dir_display = canonical_git_dir.display();
@@ -146,18 +146,18 @@ mod integration_tests {
 
     #[test]
     fn should_create_expected_dirs_when_already_exists() {
-        let temp_dir = assert_fs::TempDir::new().unwrap();
-        std::fs::create_dir(temp_dir.path().join("my_project")).unwrap();
+        let test_git_repo = TestGitRepo::new();
+        std::fs::create_dir(test_git_repo.temp_dir.path().join("my_project")).unwrap();
 
         let cmd = 
             Command::cargo_bin("rust-git")
             .unwrap()
             .arg("init")
             .arg("my_project")
-            .current_dir(temp_dir.path())
+            .current_dir(test_git_repo.temp_dir.path())
             .unwrap();
 
-        let project_dir = temp_dir.child("my_project");
+        let project_dir = test_git_repo.temp_dir.child("my_project");
         let git_dir = project_dir.child(".git");
         let canonical_git_dir = fs::canonicalize(&git_dir).unwrap();
         let git_dir_display = canonical_git_dir.display();
@@ -172,37 +172,37 @@ mod integration_tests {
 
     #[test]
     fn should_create_expected_dirs_with_bare() {
-        let temp_dir = assert_fs::TempDir::new().unwrap();
+        let test_git_repo = TestGitRepo::new();
 
         let cmd = 
             Command::cargo_bin("rust-git")
             .unwrap()
             .arg("init")
             .arg("--bare")
-            .current_dir(temp_dir.path())
+            .current_dir(test_git_repo.temp_dir.path())
             .unwrap();
 
-        let canonical_git_dir = fs::canonicalize(&temp_dir).unwrap();
+        let canonical_git_dir = fs::canonicalize(&test_git_repo.temp_dir).unwrap();
         let git_dir_display = canonical_git_dir.display();
 
         cmd.assert()
             .success()
             .stdout(format!("Initialized empty Git repository in {git_dir_display}\n"));
 
-        assert_git_init_files(&temp_dir.child("."), None);
+        assert_git_init_files(&test_git_repo.temp_dir.child("."), None);
     }
 
     #[test]
     fn should_create_expected_dirs_with_custom_git_dir() {
-        let temp_dir = assert_fs::TempDir::new().unwrap();
-        let custom_git_dir = temp_dir.child(".my-custom-git-dir");
+        let test_git_repo = TestGitRepo::new();
+        let custom_git_dir = test_git_repo.temp_dir.child(".my-custom-git-dir");
 
         let cmd = 
             Command::cargo_bin("rust-git")
             .unwrap()
             .arg("--git-dir=.my-custom-git-dir")
             .arg("init")
-            .current_dir(temp_dir.path())
+            .current_dir(test_git_repo.temp_dir.path())
             .unwrap();
 
         let canonical_git_dir = fs::canonicalize(&custom_git_dir).unwrap();
@@ -217,12 +217,12 @@ mod integration_tests {
 
     #[test]
     fn should_fail_if_already_exists() {
-        let temp_dir = assert_fs::TempDir::new().unwrap();
-        std::fs::create_dir(temp_dir.path().join(".git")).unwrap();
+        let test_git_repo = TestGitRepo::new();
+        std::fs::create_dir(test_git_repo.temp_dir.path().join(".git")).unwrap();
 
         Command::cargo_bin("rust-git")
         .unwrap()
-        .current_dir(temp_dir.path())
+        .current_dir(test_git_repo.temp_dir.path())
         .arg("init")
         .assert()
         .failure();
@@ -230,11 +230,11 @@ mod integration_tests {
 
     #[test]
     fn should_fail_if_separate_git_repository_provided() {
-        let temp_dir = assert_fs::TempDir::new().unwrap();
+        let test_git_repo = TestGitRepo::new();
 
         Command::cargo_bin("rust-git")
         .unwrap()
-        .current_dir(temp_dir.path())
+        .current_dir(test_git_repo.temp_dir.path())
         .arg("init")
         .arg("--separate-git-repository=../test")
         .assert()
@@ -243,11 +243,11 @@ mod integration_tests {
 
     #[test]
     fn should_fail_if_template_provided() {
-        let temp_dir = assert_fs::TempDir::new().unwrap();
+        let test_git_repo = TestGitRepo::new();
 
         Command::cargo_bin("rust-git")
         .unwrap()
-        .current_dir(temp_dir.path())
+        .current_dir(test_git_repo.temp_dir.path())
         .arg("init")
         .arg("--template=test")
         .assert()
@@ -256,11 +256,11 @@ mod integration_tests {
 
     #[test]
     fn should_fail_if_shared_provided_with_non_default() {
-        let temp_dir = assert_fs::TempDir::new().unwrap();
+        let test_git_repo = TestGitRepo::new();
 
         Command::cargo_bin("rust-git")
         .unwrap()
-        .current_dir(temp_dir.path())
+        .current_dir(test_git_repo.temp_dir.path())
         .arg("init")
         .arg("--shared=umask")
         .assert()
@@ -269,11 +269,11 @@ mod integration_tests {
 
     #[test]
     fn should_fail_if_work_tree_set_without_git_dir() {
-        let temp_dir = assert_fs::TempDir::new().unwrap();
+        let test_git_repo = TestGitRepo::new();
 
         Command::cargo_bin("rust-git")
         .unwrap()
-        .current_dir(temp_dir.path())
+        .current_dir(test_git_repo.temp_dir.path())
         .arg("--work-tree ./test")
         .arg("init")
         .assert()
@@ -282,11 +282,11 @@ mod integration_tests {
 
     #[test]
     fn should_fail_if_bare_and_work_tree_set() {
-        let temp_dir = assert_fs::TempDir::new().unwrap();
+        let test_git_repo = TestGitRepo::new();
 
         Command::cargo_bin("rust-git")
         .unwrap()
-        .current_dir(temp_dir.path())
+        .current_dir(test_git_repo.temp_dir.path())
         .arg("--work-tree test")
         .arg("init")
         .arg("--bare")

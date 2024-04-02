@@ -1,4 +1,4 @@
-use std::{fs::File, io::{Read, Write}, str::from_utf8};
+use std::{fmt::Debug, fs::{self, File}, io::{Read, Write}, str::from_utf8};
 
 use assert_cmd::Command;
 use assert_fs::{assert::PathAssert, fixture::{ChildPath, PathChild}, TempDir};
@@ -22,18 +22,20 @@ pub struct TestGitRepo {
 }
 
 impl TestGitRepo {
-    pub fn init() -> Self {
+    pub fn new() -> Self {
         let temp_dir = assert_fs::TempDir::new().unwrap();
-
-        Command::cargo_bin("rust-git")
-        .unwrap()
-        .arg("init")
-        .current_dir(temp_dir.path())
-        .unwrap();
 
         TestGitRepo {
             temp_dir
         }
+    }
+
+    pub fn init(&self) {
+        Command::cargo_bin("rust-git")
+        .unwrap()
+        .arg("init")
+        .current_dir(self.temp_dir.path())
+        .unwrap();
     }
 
     pub fn hash_object(&self, obj: &str) -> String {
@@ -50,7 +52,7 @@ impl TestGitRepo {
         String::from(from_utf8(&cmd.stdout).unwrap().trim())
     }
 
-    fn git_dir(&self) -> ChildPath {
+    pub fn git_dir(&self) -> ChildPath {
         self.temp_dir.child(".git")
     }
 
@@ -95,5 +97,31 @@ impl TestGitRepo {
         let mut decoded = String::new();
         decoder.read_to_string(&mut decoded).unwrap();
         decoded
+    }
+
+    /// Runs the same commands through Rust Git and C Git and asserts that some state is the same.
+    /// Perform any non-git related setup before calling this function (e.g. test file creation).
+    pub fn assert_compatibility<T: Debug + PartialEq>(&self, commands: Vec<&str>, state_getter: impl Fn(&TempDir) -> T) {
+        let split_commands: Vec<Vec<&str>> = commands.iter().map(|command| command.split(' ').collect()).collect();
+
+        // Run commands with Rust git.
+        for command in &split_commands {
+            Command::cargo_bin("rust-git").unwrap().args(command).current_dir(self.temp_dir.path()).unwrap();
+        }
+
+        let rust_git_state = state_getter(&self.temp_dir);
+
+        // Cleanup git folder.
+        fs::remove_dir_all(self.git_dir()).unwrap();
+
+        // Run commands with C git.
+        // TODO: this will currently use whatever git is installed on the machine. Update to test against a specific version.
+        for command in &split_commands {
+            Command::new("git").args(command).current_dir(self.temp_dir.path()).unwrap();
+        }
+
+        let c_git_state = state_getter(&self.temp_dir);
+
+        assert_eq!(rust_git_state, c_git_state);
     }
 }
