@@ -33,7 +33,8 @@ impl GitIndexVersion {
         }
     }
 
-    pub(crate) fn deserialize(bytes: &[u8; 4]) -> Result<GitIndexVersion, RustGitError> {
+    pub(crate) fn deserialize(bytes: &[u8]) -> Result<GitIndexVersion, RustGitError> {
+        let bytes: &[u8; 4] = bytes.try_into()?;
         match as_u32_be(bytes) {
             2 => Ok(GitIndexVersion::V2),
             other => Err(RustGitError::new(format!("unsupported index version {other}")))
@@ -65,7 +66,7 @@ impl GitIndexHeader {
             return Err(RustGitError::new("missing header signature in index file"));
         }
         Ok(GitIndexHeader {
-            version: GitIndexVersion::deserialize(&bytes[4..8].try_into()?)?,
+            version: GitIndexVersion::deserialize(&bytes[4..8])?,
             num_entries: as_u32_be(&bytes[8..12].try_into()?),
         })
     }
@@ -86,8 +87,9 @@ impl GitIndexTimestamp {
     }
 
     pub(crate) fn deserialize(bytes: &[u8]) -> Result<GitIndexTimestamp, RustGitError> {
-        let seconds_bytes = bytes[0..4].try_into()?;
-        let nanoseconds_bytes = bytes[4..8].try_into()?;
+        let bytes: &[u8; 8] = bytes.try_into()?;
+        let seconds_bytes: &[u8; 4] = bytes[0..4].try_into()?;
+        let nanoseconds_bytes: &[u8; 4] = bytes[4..8].try_into()?;
 
         Ok(GitIndexTimestamp {
             seconds: as_u32_be(seconds_bytes),
@@ -121,7 +123,7 @@ impl GitIndexMode {
             [0b00000000, 0b00000000, 0b10000001, 0b10100100] => Ok(GitIndexMode::RegularFile0644),
             [0b00000000, 0b00000000, 0b10100000, 0b00000000] => Ok(GitIndexMode::SymbolicLink),
             [0b00000000, 0b00000000, 0b11100000, 0b00000000] => Ok(GitIndexMode::GitLink),
-            other => Err(RustGitError::new(format!("invalid mode '{other:#?}' in index entry")))
+            other => Err(RustGitError::new(format!("invalid mode '{other:?}' in index entry")))
         }
     }
 }
@@ -265,8 +267,8 @@ impl GitIndexEntry {
             if flags.name_length < 0xFFF {
                 Ok(&bytes[62..(62+flags.name_length as usize)])
             } else {
-                if let Some(null_index) = &bytes[62..].iter().position(|&b| b != b'\0') {
-                    Ok(&bytes[62..null_index+1])
+                if let Some(null_index) = &bytes[62..].iter().position(|&b| b == b'\0') {
+                    Ok(&bytes[62..62+null_index])
                 } else {
                     Err(RustGitError::new("missing null byte for path name"))
                 }
@@ -381,7 +383,6 @@ impl GitIndex {
         let mut hasher = Sha1::new();
         hasher.update(&bytes);
         let checksum = hasher.final_oid_fn();
-        println!("serializer checksum: {checksum:?}");
         bytes.extend_from_slice(&GitObjectId::serialize(&checksum));
 
         bytes
@@ -462,89 +463,302 @@ impl GitIndex {
     }
 }
 
-// TODO: more serialization tests
 #[cfg(test)]
 mod tests {
+    use std::iter;
+
     use super::*;
 
-    #[test]
-    fn should_roundtrip_empty() {
-        let test_index = GitIndex {
-            header: GitIndexHeader {
-                version: GitIndexVersion::V2,
-                num_entries: 0,
-            },
-            entries: vec![],
-        };
-
-        let result = GitIndex::deserialize(&GitIndex::serialize(&test_index));
-        assert_eq!(result, Ok(test_index));
+    fn assert_incorrect_bytes_err<T>(expected_bytes: usize, deser_f: impl Fn(&[u8]) -> Result<T, RustGitError>) {
+        let too_many_bytes: Vec<u8> = iter::repeat(b'0').take(expected_bytes + 1).collect();
+        let too_few_bytes: Vec<u8> = iter::repeat(b'0').take(expected_bytes - 1).collect();
+        assert!(deser_f(&too_few_bytes).is_err());
+        assert!(deser_f(&too_many_bytes).is_err());
     }
 
-    #[test]
-    fn should_roundtrip() {
-        let test_index = GitIndex {
-            header: GitIndexHeader {
+    mod git_index {
+        use crate::{error::RustGitError, index::{GitIndex, GitIndexEntry, GitIndexFlags, GitIndexHeader, GitIndexMode, GitIndexStageFlag, GitIndexTimestamp, GitIndexVersion}, object::GitObjectId};
+
+
+        #[test]
+        fn should_roundtrip_empty() {
+            let test_index = GitIndex {
+                header: GitIndexHeader {
+                    version: GitIndexVersion::V2,
+                    num_entries: 0,
+                },
+                entries: vec![],
+            };
+
+            let result = GitIndex::deserialize(&GitIndex::serialize(&test_index));
+            assert_eq!(result, Ok(test_index));
+        }
+
+        #[test]
+        fn should_roundtrip() {
+            let test_index = GitIndex {
+                header: GitIndexHeader {
+                    version: GitIndexVersion::V2,
+                    num_entries: 2,
+                },
+                entries: vec![
+                    GitIndexEntry { 
+                        last_metadata_update: GitIndexTimestamp {
+                            seconds: 50,
+                            nanoseconds: 150,
+                        },
+                        last_data_update: GitIndexTimestamp {
+                            seconds: 100,
+                            nanoseconds: 200,
+
+                        },
+                        dev: 1,
+                        ino: 2, 
+                        mode: GitIndexMode::RegularFile0644,
+                        uid: 3, 
+                        gid: 4, 
+                        file_size: 5, 
+                        name: GitObjectId::new(String::from("9daeafb9864cf43055ae93beb0afd6c7d144bfa4")),
+                        flags: GitIndexFlags {
+                            assume_valid: false,
+                            extended: false,
+                            stage: GitIndexStageFlag::RegularFileNoConflict,
+                            name_length: 8,
+                        }, 
+                        path_name: String::from("test.txt")
+                    },
+                    GitIndexEntry { 
+                        last_metadata_update: GitIndexTimestamp {
+                            seconds: 50,
+                            nanoseconds: 150,
+                        },
+                        last_data_update: GitIndexTimestamp {
+                            seconds: 100,
+                            nanoseconds: 200,
+
+                        },
+                        dev: 1,
+                        ino: 2, 
+                        mode: GitIndexMode::RegularFile0644,
+                        uid: 3, 
+                        gid: 4, 
+                        file_size: 5, 
+                        name: GitObjectId::new(String::from("180cf8328022becee9aaa2577a8f84ea2b9f3827")),
+                        flags: GitIndexFlags {
+                            assume_valid: false,
+                            extended: false,
+                            stage: GitIndexStageFlag::RegularFileNoConflict,
+                            name_length: 9,
+                        }, 
+                        path_name: String::from("test2.txt")
+                    },
+
+                ],
+            };
+
+            let result = GitIndex::deserialize(&GitIndex::serialize(&test_index));
+            assert_eq!(result, Ok(test_index));
+        }
+
+        #[test]
+        fn should_fail_for_invalid_checksum() {
+            let test_index = GitIndex {
+                header: GitIndexHeader {
+                    version: GitIndexVersion::V2,
+                    num_entries: 0,
+                },
+                entries: vec![],
+            };
+
+            let mut serialized_bytes = GitIndex::serialize(&test_index);
+            let num_bytes = serialized_bytes.len();
+            let real_checksum = hex::encode(&serialized_bytes[num_bytes-20..]);
+            serialized_bytes[num_bytes-1] = 0;
+            let invalid_checksum = hex::encode(&serialized_bytes[num_bytes-20..]);
+
+            let result = GitIndex::deserialize(&serialized_bytes);
+            
+            assert_eq!(result, Err(RustGitError::new(format!("Index checksum {invalid_checksum} doesn't match computed hash {real_checksum}"))));
+        }
+    }
+
+    mod git_index_entry {
+        use std::iter;
+
+        use crate::{index::{GitIndexEntry, GitIndexFlags, GitIndexMode, GitIndexStageFlag, GitIndexTimestamp}, object::GitObjectId};
+
+        fn get_test_index_entry() -> GitIndexEntry { 
+            GitIndexEntry {
+                last_metadata_update: GitIndexTimestamp {
+                    seconds: 50,
+                    nanoseconds: 150,
+                },
+                last_data_update: GitIndexTimestamp {
+                    seconds: 100,
+                    nanoseconds: 200,
+
+                },
+                dev: 1,
+                ino: 2, 
+                mode: GitIndexMode::RegularFile0644,
+                uid: 3, 
+                gid: 4, 
+                file_size: 5, 
+                name: GitObjectId::new(String::from("9daeafb9864cf43055ae93beb0afd6c7d144bfa4")),
+                flags: GitIndexFlags {
+                    assume_valid: false,
+                    extended: false,
+                    stage: GitIndexStageFlag::RegularFileNoConflict,
+                    name_length: 8,
+                }, 
+                path_name: String::from("test.txt")
+            }
+        }
+
+        #[test]
+        fn should_roundtrip() {
+            let git_index_entry = get_test_index_entry();
+            let result = GitIndexEntry::deserialize(&GitIndexEntry::serialize(&git_index_entry));
+            assert_eq!(result, Ok((git_index_entry, 72)));
+        }
+
+        #[test]
+        fn should_roundtrip_long_name() {
+            let test_index_entry = get_test_index_entry();
+            let git_index_entry = GitIndexEntry { 
+                flags: GitIndexFlags { name_length: 0xFFF, ..test_index_entry.flags },
+                path_name: iter::repeat('A').take(0xFFF1).collect(),
+                ..test_index_entry
+            };
+            let result = GitIndexEntry::deserialize(&GitIndexEntry::serialize(&git_index_entry));
+            assert_eq!(result, Ok((git_index_entry, 65584)));
+        }
+    }
+
+    mod git_index_flags {
+        use crate::index::tests::assert_incorrect_bytes_err;
+
+        use super::GitIndexFlags;
+
+        #[test]
+        fn should_roundtrip() {
+            let git_index_flags = GitIndexFlags {
+                assume_valid: false,
+                extended: false,
+                stage: super::GitIndexStageFlag::RegularFileNoConflict,
+                name_length: 5,
+            };
+
+            let result = GitIndexFlags::deserialize(&GitIndexFlags::serialize(&git_index_flags));
+            assert_eq!(result, Ok(git_index_flags));
+        }
+
+        #[test]
+        fn should_fail_for_incorrect_number_of_bytes() {
+            assert_incorrect_bytes_err(2, GitIndexFlags::deserialize)
+        }
+    }
+
+    mod git_index_mode {
+        use crate::error::RustGitError;
+
+        use super::{assert_incorrect_bytes_err, GitIndexMode};
+
+        #[test]
+        fn should_roundtrip() {
+            assert_eq!(GitIndexMode::deserialize(&GitIndexMode::serialize(&GitIndexMode::RegularFile0755)), Ok(GitIndexMode::RegularFile0755));
+            assert_eq!(GitIndexMode::deserialize(&GitIndexMode::serialize(&GitIndexMode::RegularFile0644)), Ok(GitIndexMode::RegularFile0644));
+            assert_eq!(GitIndexMode::deserialize(&GitIndexMode::serialize(&GitIndexMode::SymbolicLink)), Ok(GitIndexMode::SymbolicLink));
+            assert_eq!(GitIndexMode::deserialize(&GitIndexMode::serialize(&GitIndexMode::GitLink)), Ok(GitIndexMode::GitLink));
+        }
+
+        #[test]
+        fn should_fail_for_incorrect_number_of_bytes() {
+            assert_incorrect_bytes_err(4, GitIndexMode::deserialize);
+        }
+
+        #[test]
+        fn should_fail_for_invalid_mode() {
+            let bytes: &[u8] = &[0, 0, 0, 0];
+            let result = GitIndexMode::deserialize(&bytes);
+            assert_eq!(result, Err(RustGitError::new("invalid mode '[0, 0, 0, 0]' in index entry")));
+        }
+
+    }
+
+    mod git_index_timestamp {
+        use crate::index::tests::assert_incorrect_bytes_err;
+
+        use super::GitIndexTimestamp;
+
+        #[test]
+        fn should_roundtrip() {
+            let git_index_timestamp = GitIndexTimestamp {
+                seconds: 50,
+                nanoseconds: 100,
+            };
+
+            let result = GitIndexTimestamp::deserialize(&GitIndexTimestamp::serialize(&git_index_timestamp));
+            assert_eq!(result, Ok(git_index_timestamp));
+        }
+
+        #[test]
+        fn should_fail_for_incorrect_number_of_bytes() {
+            assert_incorrect_bytes_err(8, GitIndexTimestamp::deserialize);
+        }
+    }
+
+    mod git_index_header {
+        use crate::{error::RustGitError, index::tests::assert_incorrect_bytes_err};
+
+        use super::{GitIndexVersion, GitIndexHeader};
+
+        #[test]
+        fn should_roundtrip() {
+            let git_index_header = GitIndexHeader {
                 version: GitIndexVersion::V2,
                 num_entries: 2,
-            },
-            entries: vec![
-                GitIndexEntry { 
-                    last_metadata_update: GitIndexTimestamp {
-                        seconds: 50,
-                        nanoseconds: 150,
-                    },
-                    last_data_update: GitIndexTimestamp {
-                        seconds: 100,
-                        nanoseconds: 200,
+            };
 
-                    },
-                    dev: 1,
-                    ino: 2, 
-                    mode: GitIndexMode::RegularFile0644,
-                    uid: 3, 
-                    gid: 4, 
-                    file_size: 5, 
-                    name: GitObjectId::new(String::from("9daeafb9864cf43055ae93beb0afd6c7d144bfa4")),
-                    flags: GitIndexFlags {
-                        assume_valid: false,
-                        extended: false,
-                        stage: GitIndexStageFlag::RegularFileNoConflict,
-                        name_length: 8,
-                    }, 
-                    path_name: String::from("test.txt")
-                },
-                GitIndexEntry { 
-                    last_metadata_update: GitIndexTimestamp {
-                        seconds: 50,
-                        nanoseconds: 150,
-                    },
-                    last_data_update: GitIndexTimestamp {
-                        seconds: 100,
-                        nanoseconds: 200,
+            let result = GitIndexHeader::deserialize(&GitIndexHeader::serialize(&git_index_header));
+            assert_eq!(result, Ok(git_index_header));
+        }
 
-                    },
-                    dev: 1,
-                    ino: 2, 
-                    mode: GitIndexMode::RegularFile0644,
-                    uid: 3, 
-                    gid: 4, 
-                    file_size: 5, 
-                    name: GitObjectId::new(String::from("180cf8328022becee9aaa2577a8f84ea2b9f3827")),
-                    flags: GitIndexFlags {
-                        assume_valid: false,
-                        extended: false,
-                        stage: GitIndexStageFlag::RegularFileNoConflict,
-                        name_length: 9,
-                    }, 
-                    path_name: String::from("test2.txt")
-                },
+        #[test]
+        fn should_fail_for_incorrect_number_of_bytes() {
+            assert_incorrect_bytes_err(12, GitIndexHeader::deserialize);
+        }
 
-            ],
-        };
-
-        let result = GitIndex::deserialize(&GitIndex::serialize(&test_index));
-        assert_eq!(result, Ok(test_index));
+        #[test]
+        fn should_fail_for_missing_signature() {
+            let bytes: &[u8] = b"LIRC00000000"; // should be DIRC
+            let result = GitIndexHeader::deserialize(&bytes);
+            assert_eq!(result, Err(RustGitError::new("missing header signature in index file")));
+        }
     }
 
+    mod git_index_version {
+        use crate::error::RustGitError;
+
+        use super::{assert_incorrect_bytes_err, GitIndexVersion};
+
+        #[test]
+        fn should_roundtrip() {
+            let git_index_version = GitIndexVersion::V2;
+
+            let result = GitIndexVersion::deserialize(&GitIndexVersion::serialize(&git_index_version));
+            assert_eq!(result, Ok(git_index_version));
+        }
+
+        #[test]
+        fn should_fail_for_incorrect_number_of_bytes() {
+            assert_incorrect_bytes_err(4, GitIndexVersion::deserialize);
+        }
+
+        #[test]
+        fn should_fail_for_invalid_version() {
+            let result = GitIndexVersion::deserialize(&(3 as u32).to_be_bytes());
+            assert_eq!(result, Err(RustGitError::new("unsupported index version 3")));
+        }
+    }
 }
