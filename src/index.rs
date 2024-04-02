@@ -72,13 +72,6 @@ impl GitIndexHeader {
 }
 
 #[derive(Debug, PartialEq)]
-pub(crate) enum GitIndexObjectType {
-    RegularFile,
-    SymbolicLink,
-    GitLink,
-}
-
-#[derive(Debug, PartialEq)]
 pub(crate) struct GitIndexTimestamp {
     seconds: u32,
     nanoseconds: u32,
@@ -104,51 +97,32 @@ impl GitIndexTimestamp {
 }
 
 #[derive(Debug, PartialEq)]
-pub(crate) enum GitIndexUnixPermission {
-    Permission0755,
-    Permission0644,
-    None,
-}
-
-#[derive(Debug, PartialEq)]
-pub(crate) struct GitIndexMode {
-    obj_type: GitIndexObjectType,
-    unix_permission: GitIndexUnixPermission,
+pub(crate) enum GitIndexMode {
+    RegularFile0755,
+    RegularFile0644,
+    SymbolicLink,
+    GitLink,
 }
 
 impl GitIndexMode {
     pub(crate) fn serialize(mode: &GitIndexMode) -> [u8; 4] {
-        match (&mode.obj_type, &mode.unix_permission) {
-            (GitIndexObjectType::RegularFile, GitIndexUnixPermission::Permission0755) => 
-                [0b00000000, 0b00000000, 0b10000001, 0b11101101],
-            (GitIndexObjectType::RegularFile, GitIndexUnixPermission::Permission0644) => 
-                [0b00000000, 0b00000000, 0b10000001, 0b10100100],
-            (GitIndexObjectType::SymbolicLink, GitIndexUnixPermission::None) =>
-                [0b00000000, 0b00000000, 0b10100000, 0b00000000],
-            (GitIndexObjectType::GitLink, GitIndexUnixPermission::None) =>
-                [0b00000000, 0b00000000, 0b11100000, 0b00000000],
-            _ => 
-                panic!("invalid mode during serialization"),
+        match &mode {
+            GitIndexMode::RegularFile0755 => [0b00000000, 0b00000000, 0b10000001, 0b11101101],
+            GitIndexMode::RegularFile0644 => [0b00000000, 0b00000000, 0b10000001, 0b10100100],
+            GitIndexMode::SymbolicLink => [0b00000000, 0b00000000, 0b10100000, 0b00000000],
+            GitIndexMode::GitLink => [0b00000000, 0b00000000, 0b11100000, 0b00000000],
         }
     }
 
     pub(crate) fn deserialize(bytes: &[u8]) -> Result<GitIndexMode, RustGitError> {
         let bytes: [u8; 4] = bytes.try_into()?;
-        let (obj_type, unix_permission) =
-            match bytes {
-                [0b00000000, 0b00000000, 0b10000001, 0b11101101] => Ok((GitIndexObjectType::RegularFile, GitIndexUnixPermission::Permission0755)),
-                [0b00000000, 0b00000000, 0b10000001, 0b10100100] => Ok((GitIndexObjectType::RegularFile, GitIndexUnixPermission::Permission0644)),
-
-                [0b00000000, 0b00000000, 0b10100000, 0b00000000] => Ok((GitIndexObjectType::SymbolicLink, GitIndexUnixPermission::None)),
-
-                [0b00000000, 0b00000000, 0b11100000, 0b00000000] => Ok((GitIndexObjectType::GitLink, GitIndexUnixPermission::None)),
-                other => Err(RustGitError::new(format!("invalid mode '{other:#?}' in index entry")))
-            }?;
-
-        Ok(GitIndexMode {
-            obj_type,
-            unix_permission,
-        })
+        match bytes {
+            [0b00000000, 0b00000000, 0b10000001, 0b11101101] => Ok(GitIndexMode::RegularFile0755),
+            [0b00000000, 0b00000000, 0b10000001, 0b10100100] => Ok(GitIndexMode::RegularFile0644),
+            [0b00000000, 0b00000000, 0b10100000, 0b00000000] => Ok(GitIndexMode::SymbolicLink),
+            [0b00000000, 0b00000000, 0b11100000, 0b00000000] => Ok(GitIndexMode::GitLink),
+            other => Err(RustGitError::new(format!("invalid mode '{other:#?}' in index entry")))
+        }
     }
 }
 
@@ -264,8 +238,6 @@ impl GitIndexEntry {
             }
         };
 
-        println!("padding_byte_count: {padding_byte_count}");
-
         let padding_bytes: Vec<u8> = std::iter::repeat(b'\0').take(padding_byte_count).collect();
 
         let mut bytes = vec![];
@@ -278,27 +250,16 @@ impl GitIndexEntry {
     }
 
     pub(crate) fn deserialize(bytes: &[u8]) -> Result<(GitIndexEntry, usize), RustGitError> {
-        println!("start");
         let last_metadata_update = GitIndexTimestamp::deserialize(&bytes[0..8])?;
-        println!("last_metadata_update: {last_metadata_update:#?}");
         let last_data_update = GitIndexTimestamp::deserialize(&bytes[8..16])?;
-        println!("last_data_update: {last_data_update:#?}");
         let dev = as_u32_be(&bytes[16..20].try_into()?);
-        println!("dev: {dev:#?}");
         let ino = as_u32_be(&bytes[20..24].try_into()?);
-        println!("ino: {ino:#?}");
         let mode = GitIndexMode::deserialize(&bytes[24..28])?;
-        println!("mode: {mode:#?}");
         let uid = as_u32_be(&bytes[28..32].try_into()?);
-        println!("uid: {uid:#?}");
         let gid = as_u32_be(&bytes[32..36].try_into()?);
-        println!("gid: {gid:#?}");
         let file_size = as_u32_be(&bytes[36..40].try_into()?);
-        println!("file_size: {file_size:#?}");
         let name = GitObjectId::deserialize(&bytes[40..60])?;
-        println!("name: {name:#?}");
         let flags = GitIndexFlags::deserialize(&bytes[60..62])?;
-        println!("flags: {flags:#?}");
 
         let path_name_bytes = {
             if flags.name_length < 0xFFF {
@@ -314,7 +275,6 @@ impl GitIndexEntry {
         }?;
 
         let path_name = String::from_utf8(path_name_bytes.to_vec())?;
-        println!("path_name: {path_name:?}");
 
         let processed_bytes = 62 + path_name_bytes.len();
         let padding = {
@@ -344,20 +304,18 @@ impl GitIndexEntry {
     }
 
     pub(crate) fn new(path: &str, metadata: &Metadata, obj_id: GitObjectId) -> GitIndexEntry {
-        let (obj_type, unix_permission) =
+        let mode =
             if metadata.is_symlink() {
-                (GitIndexObjectType::SymbolicLink, GitIndexUnixPermission::None)
+                GitIndexMode::SymbolicLink
             } else if metadata.is_dir() {
-                (GitIndexObjectType::GitLink, GitIndexUnixPermission::None)
+                GitIndexMode::GitLink
             } else {
                 // If file is executable by owner, we set 755, otherwise 644.
-                let unix_permission = 
-                    if metadata.permissions().mode() & 0b01000000 != 0 {
-                        GitIndexUnixPermission::Permission0755
-                    } else {
-                        GitIndexUnixPermission::Permission0644
-                    };
-                (GitIndexObjectType::RegularFile, unix_permission)
+                if metadata.permissions().mode() & 0b01000000 != 0 {
+                    GitIndexMode::RegularFile0755
+                } else {
+                    GitIndexMode::RegularFile0644
+                }
             };
 
 
@@ -376,10 +334,7 @@ impl GitIndexEntry {
             gid: metadata.gid() as u32,
             file_size: metadata.size() as u32,
             name: obj_id,
-            mode: GitIndexMode {
-                obj_type,
-                unix_permission,
-            },
+            mode: mode,
             flags: GitIndexFlags {
                 assume_valid: false,
                 extended: false,
@@ -546,10 +501,7 @@ mod tests {
                     },
                     dev: 1,
                     ino: 2, 
-                    mode: GitIndexMode { 
-                        obj_type: GitIndexObjectType::RegularFile, 
-                        unix_permission: GitIndexUnixPermission::Permission0644,
-                    }, 
+                    mode: GitIndexMode::RegularFile0644,
                     uid: 3, 
                     gid: 4, 
                     file_size: 5, 
@@ -574,10 +526,7 @@ mod tests {
                     },
                     dev: 1,
                     ino: 2, 
-                    mode: GitIndexMode { 
-                        obj_type: GitIndexObjectType::RegularFile, 
-                        unix_permission: GitIndexUnixPermission::Permission0644,
-                    }, 
+                    mode: GitIndexMode::RegularFile0644,
                     uid: 3, 
                     gid: 4, 
                     file_size: 5, 
