@@ -7,7 +7,7 @@ use flate2::read::ZlibDecoder;
 
 pub trait TempDirExt {
     fn create_test_dir(&self, dir_name: &str);
-    fn create_test_file(&self, file_name: &str, contents: &[u8]);
+    fn create_test_file(&self, file_name: &str, contents: &[u8]) -> File;
 }
 
 impl TempDirExt for TempDir {
@@ -16,10 +16,11 @@ impl TempDirExt for TempDir {
         fs::create_dir_all(test_dir_path).unwrap();
     }
 
-    fn create_test_file(&self, file_name: &str, contents: &[u8]) {
+    fn create_test_file(&self, file_name: &str, contents: &[u8]) -> File {
         let test_file_path = self.child(file_name);
         let mut test_file = File::create(test_file_path).unwrap();
         test_file.write_all(contents).unwrap();
+        test_file
     }
 }
 
@@ -56,6 +57,17 @@ impl TestGitRepo {
             .unwrap();
 
         String::from(from_utf8(&cmd.stdout).unwrap().trim())
+    }
+
+    pub fn add(&self, files: &str) {
+        let mut add_args = String::from("add ");
+        add_args.push_str(files);
+
+        Command::cargo_bin("rust-git")
+        .unwrap()
+        .args(add_args.split(' '))
+        .current_dir(self.temp_dir.path())
+        .unwrap();
     }
 
     pub fn git_dir(&self) -> ChildPath {
