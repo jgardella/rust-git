@@ -11,6 +11,7 @@ mod init;
 mod hash_object;
 mod add;
 mod cat_file;
+mod ls_files;
 
 use std::{path::{Path, PathBuf}, process::ExitCode};
 
@@ -22,6 +23,7 @@ use command::from_cli;
 use error::RustGitError;
 use hash_object::cli::HashObjectArgs;
 use init::cli::InitArgs;
+use ls_files::cli::LsFilesArgs;
 use repo::GitRepo;
 
 fn parse_config_override(s: &str) -> Result<(String,String), String> {
@@ -240,6 +242,7 @@ enum CliCommand {
     Add(AddArgs),
     HashObject(HashObjectArgs),
     CatFile(CatFileArgs),
+    LsFiles(LsFilesArgs),
 }
 
 fn load_repo_and_execute(cli: Cli) -> Result<(), RustGitError> {
