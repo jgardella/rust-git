@@ -128,12 +128,14 @@ impl GitIndexMode {
     }
 }
 
-#[derive(Debug, PartialEq)]
+// Value for each case is important here,
+// to maintian consistent ordering of index entries.
+#[derive(Debug, PartialEq, PartialOrd, Eq, Ord)]
 pub(crate) enum GitIndexStageFlag {
-    RegularFileNoConflict,
-    Base,
-    Ours,
-    Theirs,
+    RegularFileNoConflict = 0,
+    Base = 1,
+    Ours = 2,
+    Theirs = 3,
 }
 
 #[derive(Debug, PartialEq)]
@@ -192,10 +194,6 @@ impl GitIndexFlags {
     }
 }
 
-/// Index entries are sorted in ascending order on the name field,
-/// interpreted as a string of unsigned bytes (i.e. memcmp() order, no
-/// localization, no special casing of directory separator '/'). Entries
-/// with the same name are sorted by their stage field.
 #[derive(Debug, PartialEq)]
 pub(crate) struct GitIndexEntry {
     last_metadata_update: GitIndexTimestamp,
@@ -344,6 +342,20 @@ impl GitIndexEntry {
                 name_length: path.len() as u16,
             },
             path_name: String::from(path),
+        }
+    }
+}
+
+/// Index entries are sorted in ascending order on the name field,
+/// interpreted as a string of unsigned bytes (i.e. memcmp() order, no
+/// localization, no special casing of directory separator '/'). Entries
+/// with the same name are sorted by their stage field.
+impl PartialOrd for GitIndexEntry {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        if self.path_name == other.path_name {
+            Some(self.flags.stage.cmp(&other.flags.stage))
+        } else {
+            Some(self.path_name.cmp(&other.path_name))
         }
     }
 }
