@@ -1,6 +1,6 @@
 /// All binary numbers are in network byte order.
 
-use std::{fs::{self, File, Metadata}, io::Write, os::unix::fs::{MetadataExt, PermissionsExt}, path::{Path, PathBuf}};
+use std::{fmt::Display, fs::{self, File, Metadata}, io::Write, os::unix::fs::{MetadataExt, PermissionsExt}, path::{Path, PathBuf}};
 use sha1::{Digest, Sha1};
 use crate::{error::RustGitError, hash::Hasher, object::GitObjectId};
 
@@ -74,8 +74,14 @@ impl GitIndexHeader {
 
 #[derive(Debug, PartialEq)]
 pub(crate) struct GitIndexTimestamp {
-    seconds: u32,
-    nanoseconds: u32,
+    pub seconds: u32,
+    pub nanoseconds: u32,
+}
+
+impl Display for GitIndexTimestamp {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}:{}", self.seconds, self.nanoseconds)
+    }
 }
 
 impl GitIndexTimestamp {
@@ -104,6 +110,17 @@ pub(crate) enum GitIndexMode {
     RegularFile0644,
     SymbolicLink,
     GitLink,
+}
+
+impl Display for GitIndexMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            GitIndexMode::RegularFile0755 => write!(f, "{}", "100755"),
+            GitIndexMode::RegularFile0644 => write!(f, "{}", "100644"),
+            GitIndexMode::SymbolicLink => write!(f, "{}", "120000"),
+            GitIndexMode::GitLink => write!(f, "{}", "160000"),
+        }
+    }
 }
 
 impl GitIndexMode {
@@ -138,12 +155,23 @@ pub(crate) enum GitIndexStageFlag {
     Theirs = 3,
 }
 
+impl Display for GitIndexStageFlag {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            GitIndexStageFlag::RegularFileNoConflict => write!(f, "{}", "0"),
+            GitIndexStageFlag::Base => write!(f, "{}", "1"),
+            GitIndexStageFlag::Ours => write!(f, "{}", "2"),
+            GitIndexStageFlag::Theirs => write!(f, "{}", "3"),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub(crate) struct GitIndexFlags {
-    assume_valid: bool,
-    extended: bool,
-    stage: GitIndexStageFlag,
-    name_length: u16,
+    pub assume_valid: bool,
+    pub extended: bool,
+    pub stage: GitIndexStageFlag,
+    pub name_length: u16,
 } 
 
 impl GitIndexFlags {
@@ -196,22 +224,22 @@ impl GitIndexFlags {
 
 #[derive(Debug)]
 pub(crate) struct GitIndexEntry {
-    last_metadata_update: GitIndexTimestamp,
-    last_data_update: GitIndexTimestamp,
-    dev: u32,
-    ino: u32,
-    mode: GitIndexMode,
-    uid: u32,
-    gid: u32,
-    file_size: u32,
-    name: GitObjectId,
-    flags: GitIndexFlags,
+    pub last_metadata_update: GitIndexTimestamp,
+    pub last_data_update: GitIndexTimestamp,
+    pub dev: u32,
+    pub ino: u32,
+    pub mode: GitIndexMode,
+    pub uid: u32,
+    pub gid: u32,
+    pub file_size: u32,
+    pub name: GitObjectId,
+    pub flags: GitIndexFlags,
 
     /// Entry path name (variable length) relative to top level directory
     /// (without leading slash). '/' is used as path separator. The special
     /// path components ".", ".." and ".git" (without quotes) are disallowed.
     /// Trailing slash is also disallowed.
-    path_name: String,
+    pub path_name: String,
 }
 
 impl GitIndexEntry {
@@ -488,6 +516,11 @@ impl GitIndex {
                 self.header.num_entries += 1;
             }
         }
+    }
+
+    /// Returns na interator over the index entries.
+    pub(crate) fn iter_entries(&self) -> impl Iterator<Item=&GitIndexEntry> {
+        self.entries.iter()
     }
 }
 
