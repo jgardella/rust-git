@@ -10,10 +10,12 @@ mod compatibility_tests {
         let test_git_repo = TestGitRepo::new();
         test_git_repo.temp_dir.create_test_file("test.txt", b"test");
         test_git_repo.temp_dir.create_test_file("test2.txt", b"test2");
+        test_git_repo.temp_dir.create_test_dir("test_dir");
+        test_git_repo.temp_dir.create_test_file("test_dir/test_in_dir.txt", b"test_in_dir");
 
         let commands = vec![
             "init",
-            "add test.txt test2.txt"
+            "add test.txt test2.txt test_dir"
         ];
 
         let get_index_bytes = |temp_dir: &TempDir| {
