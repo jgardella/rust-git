@@ -6,10 +6,16 @@ use predicates::{boolean::PredicateBooleanExt, prelude::predicate};
 use flate2::read::ZlibDecoder;
 
 pub trait TempDirExt {
+    fn create_test_dir(&self, dir_name: &str);
     fn create_test_file(&self, file_name: &str, contents: &[u8]);
 }
 
 impl TempDirExt for TempDir {
+    fn create_test_dir(&self, dir_name: &str) {
+        let test_dir_path = self.child(dir_name);
+        fs::create_dir_all(test_dir_path).unwrap();
+    }
+
     fn create_test_file(&self, file_name: &str, contents: &[u8]) {
         let test_file_path = self.child(file_name);
         let mut test_file = File::create(test_file_path).unwrap();

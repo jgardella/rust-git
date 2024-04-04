@@ -22,10 +22,14 @@ fn process_path(path: &str, repo: &mut GitRepo) -> Result<(), RustGitError> {
     let metadata = fs::metadata(path)?;
 
     if metadata.is_dir() {
-        todo!("process directory path");
+        for dir_item in fs::read_dir(path)? {
+            process_path(dir_item?.path().to_str().unwrap(), repo)?
+        }
+    } else {
+        add_one_path(path, metadata, repo)?;
     }
 
-    add_one_path(path, metadata, repo)
+    Ok(())
 }
 
 fn add_one_path(path: &str, metadata: Metadata, repo: &mut GitRepo) -> Result<(), RustGitError> {
