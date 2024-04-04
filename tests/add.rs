@@ -1,3 +1,36 @@
+mod integration_tests {
+    use assert_cmd::{assert::OutputAssertExt, Command};
+    use test_helpers::{TempDirExt, TestGitRepo};
+
+    #[test]
+    fn should_add_files_to_index() {
+        let test_git_repo = TestGitRepo::new();
+        test_git_repo.temp_dir.create_test_file("test.txt", b"test");
+        test_git_repo.temp_dir.create_test_file("test2.txt", b"test2");
+        test_git_repo.temp_dir.create_test_dir("test_dir");
+        test_git_repo.temp_dir.create_test_file("test_dir/test_in_dir.txt", b"test_in_dir");
+
+        test_git_repo.init();
+
+        let cmd = 
+            Command::cargo_bin("rust-git")
+            .unwrap()
+            .arg("add")
+            .arg("test.txt")
+            .arg("test2.txt")
+            .arg("test_dir")
+            .current_dir(test_git_repo.temp_dir.path())
+            .unwrap();
+
+        cmd.assert().success();
+
+        let ls_files_output = test_git_repo.ls_files();
+        assert_eq!(ls_files_output, "test.txt
+test2.txt
+test_dir/test_in_dir.txt")
+    }
+}
+
 mod compatibility_tests {
 
     use std::{fs::File, io::Read};
