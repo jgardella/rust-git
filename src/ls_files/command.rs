@@ -1,5 +1,4 @@
-use std::{fs::{DirBuilder, self, File}, path::{PathBuf, Path}, io::Write};
-use crate::{command::GitCommand, config::{CoreConfig, ExtensionsConfig, GitConfig}, index::GitIndexEntry, repo::{GitRepo, RepoState}, RustGitError};
+use crate::{command::GitCommand, repo::RepoState, RustGitError};
 
 use super::cli::LsFilesArgs;
 
@@ -28,17 +27,17 @@ impl GitCommand for LsFilesCommand {
         for index_entry in repo.index.iter_entries() {
             if self.args.cached || self.args.stage {
                 if self.args.stage {
-                    print!("{:?} {:?} {:?}\t", index_entry.mode, index_entry.name, index_entry.flags.stage)
+                    print!("{} {} {}\t", index_entry.mode, index_entry.name, index_entry.flags.stage)
                 }
 
-                println!("{:?}", index_entry.path_name);
+                println!("{}", index_entry.path_name);
 
                 if self.args.debug {
-                    println!("  ctime: {:?}", index_entry.last_data_update);
-                    println!("  mtime: {:?}", index_entry.last_metadata_update);
-                    println!("  dev: {:?}\tino: {:?}", index_entry.dev, index_entry.ino);
-                    println!("  uid: {:?}\tgid: {:?}", index_entry.uid, index_entry.gid);
-                    println!("  size: {:?}\tflags: {:?}", index_entry.file_size, index_entry.flags);
+                    println!("  ctime: {}", index_entry.last_data_update);
+                    println!("  mtime: {}", index_entry.last_metadata_update);
+                    println!("  dev: {}\tino: {}", index_entry.dev, index_entry.ino);
+                    println!("  uid: {}\tgid: {}", index_entry.uid, index_entry.gid);
+                    println!("  size: {}\tflags: {}", index_entry.file_size, index_entry.flags.stage);
                 }
             }
         }
