@@ -7,11 +7,12 @@ mod object;
 mod options;
 mod index;
 
-mod init;
-mod hash_object;
 mod add;
 mod cat_file;
+mod hash_object;
+mod init;
 mod ls_files;
+mod rm;
 
 use std::{path::{Path, PathBuf}, process::ExitCode};
 
@@ -25,6 +26,7 @@ use hash_object::cli::HashObjectArgs;
 use init::cli::InitArgs;
 use ls_files::cli::LsFilesArgs;
 use repo::GitRepo;
+use rm::cli::RmArgs;
 
 fn parse_config_override(s: &str) -> Result<(String,String), String> {
     match s.find('=') {
@@ -243,6 +245,7 @@ enum CliCommand {
     HashObject(HashObjectArgs),
     CatFile(CatFileArgs),
     LsFiles(LsFilesArgs),
+    Rm(RmArgs),
 }
 
 fn load_repo_and_execute(cli: Cli) -> Result<(), RustGitError> {
