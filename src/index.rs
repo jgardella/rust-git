@@ -530,6 +530,7 @@ impl GitIndex {
         self.entries.retain(|entry| {
             let result = predicate(entry);
             if !result {
+                self.header.num_entries -= 1;
                 removed_paths.push(entry.path_name.clone());
             }
             result
