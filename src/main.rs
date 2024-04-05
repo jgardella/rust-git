@@ -12,6 +12,7 @@ mod cat_file;
 mod hash_object;
 mod init;
 mod ls_files;
+mod mv;
 mod rm;
 
 use std::{path::{Path, PathBuf}, process::ExitCode};
@@ -25,6 +26,7 @@ use error::RustGitError;
 use hash_object::cli::HashObjectArgs;
 use init::cli::InitArgs;
 use ls_files::cli::LsFilesArgs;
+use mv::cli::MvArgs;
 use repo::GitRepo;
 use rm::cli::RmArgs;
 
@@ -246,6 +248,7 @@ enum CliCommand {
     CatFile(CatFileArgs),
     LsFiles(LsFilesArgs),
     Rm(RmArgs),
+    Mv(MvArgs),
 }
 
 fn load_repo_and_execute(cli: Cli) -> Result<(), RustGitError> {
