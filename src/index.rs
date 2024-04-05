@@ -1,6 +1,6 @@
 /// All binary numbers are in network byte order.
 
-use std::{fmt::Display, fs::{self, File, Metadata}, io::Write, os::unix::fs::{MetadataExt, PermissionsExt}, path::{Path, PathBuf}};
+use std::{fmt::Display, fs::{self, File, Metadata}, io::Write, os::unix::fs::{MetadataExt, PermissionsExt}, path::{Path, PathBuf}, slice::IterMut};
 use sha1::{Digest, Sha1};
 use crate::{error::RustGitError, hash::Hasher, object::GitObjectId};
 
@@ -518,10 +518,25 @@ impl GitIndex {
         }
     }
 
-    /// Returns na interator over the index entries.
+    /// Returns an interator over the index entries.
     pub(crate) fn iter_entries(&self) -> impl Iterator<Item=&GitIndexEntry> {
         self.entries.iter()
     }
+
+    /// Filters out entries for which the provided predicate returns false.
+    /// Returns the path names of the removed entries.
+    pub(crate) fn filter_entries(&mut self, mut predicate: impl FnMut(&GitIndexEntry) -> bool) -> Vec<String> {
+        let mut removed_paths = Vec::new();
+        self.entries.retain(|entry| {
+            let result = predicate(entry);
+            if !result {
+                removed_paths.push(entry.path_name.clone());
+            }
+            result
+        });
+        removed_paths
+    }
+
 }
 
 #[cfg(test)]
