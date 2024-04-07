@@ -538,6 +538,18 @@ impl GitIndex {
         removed_paths
     }
 
+    /// Tries to find an index entry with the provided path.
+    pub(crate) fn entry_by_path(&self, path: &Path) -> Option<(usize, &GitIndexEntry)> {
+        self.entries.binary_search_by_key(&path.to_str().unwrap(), |entry| &entry.path_name)
+        .map_or(None, |idx| Some((idx, &self.entries[idx])))
+    }
+
+    /// Updates the path name of the index entry at the provided index.
+    pub(crate) fn rename_entry_at(&mut self, index: usize, new_name: &str) {
+        let current_entry = self.entries.remove(index);
+        let new_entry = GitIndexEntry { path_name: String::from(new_name), ..current_entry };
+        self.add(new_entry);
+    }
 }
 
 #[cfg(test)]
