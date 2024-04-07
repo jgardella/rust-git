@@ -371,6 +371,20 @@ impl GitIndexEntry {
             path_name: String::from(path),
         }
     }
+
+    /// Creates a copy of the provided index with a new name.
+    pub(crate) fn with_updated_name(self, new_name: &str) -> GitIndexEntry {
+        GitIndexEntry { 
+            path_name: String::from(new_name), 
+            flags: GitIndexFlags { 
+                name_length: new_name.len() as u16,
+                ..self.flags 
+            }, 
+            ..self 
+        }
+    }
+
+
 }
 
 // Index entries are sorted in ascending order on the name field,
@@ -544,11 +558,19 @@ impl GitIndex {
         .map_or(None, |idx| Some((idx, &self.entries[idx])))
     }
 
+    /// Removes the index entry at the provided index.
+    /// Assumes that the provided index is valid.
+    pub(crate) fn remove_entry_at(&mut self, index: usize) -> GitIndexEntry {
+        self.header.num_entries -= 1;
+        self.entries.remove(index)
+    }
+
     /// Updates the path name of the index entry at the provided index.
     pub(crate) fn rename_entry_at(&mut self, index: usize, new_name: &str) {
-        let current_entry = self.entries.remove(index);
-        let new_entry = GitIndexEntry { path_name: String::from(new_name), ..current_entry };
+        let new_entry = self.remove_entry_at(index).with_updated_name(new_name);
         self.add(new_entry);
+        // TODO: refresh index entry
+        // https://github.com/git/git/blob/master/read-cache.c#L165-L171
     }
 }
 

@@ -1,5 +1,5 @@
 
-use std::{fs, path::{Path, PathBuf}};
+use std::{fs, path::{Path, PathBuf, MAIN_SEPARATOR, MAIN_SEPARATOR_STR}};
 
 use crate::{command::GitCommand, index::GitIndexStageFlag, repo::{GitRepo, RepoState}, RustGitError};
 
@@ -66,10 +66,12 @@ fn check_source(cmd: &MvCommand, repo: &GitRepo, source: &Path, destination: &Pa
                 } else {
                     return Err(String::from("cannot overwrite"));
                 }
-                return Ok(source_index);
             } else {
-                return Err(String::from("destination directory does not exist"));
+                if destination.ends_with(MAIN_SEPARATOR_STR) {
+                    return Err(String::from("destination directory does not exist"));
+                }
             }
+            return Ok(source_index);
         }
 
         return Err(String::from("not under version control"));
@@ -110,13 +112,15 @@ impl GitCommand for MvCommand {
 
                     if !self.args.dry_run {
                         match fs::rename(&source, &destination) {
-                            Err(_) if !self.args.skip => {
-                                return Err(RustGitError::new(format!("renaming {source:?} failed")));
-                            },
-                            _ => {
+                            Ok(_) => {
                                 // TODO: when destination is a directory, it should have source file name appended
-                                repo.index.rename_entry_at(source_index, &destination.to_str().unwrap())
-                            }
+                                repo.index.rename_entry_at(source_index, &destination.to_str().unwrap());
+                            },
+                            Err(_) => {
+                                if !self.args.skip {
+                                    return Err(RustGitError::new(format!("renaming {source:?} failed")));
+                                }
+                            },
                         }
                     }
                 }
@@ -126,6 +130,11 @@ impl GitCommand for MvCommand {
                     }
             }
         }
+
+        // TODO: cleanup empty source dirs:
+        // https://github.com/git/git/blob/master/builtin/mv.c#L539
+
+        repo.write_index()?;
 
         Ok(())
     }
