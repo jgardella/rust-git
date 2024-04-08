@@ -558,9 +558,9 @@ impl GitIndex {
     }
 
     /// Tries to find an index entry with the provided path.
-    pub(crate) fn entry_by_path(&self, path: &Path) -> Option<&GitIndexEntry> {
-        self.entries.binary_search_by_key(&path.to_str().unwrap(), |entry| &entry.path_name)
-        .map_or(None, |idx| Some(&self.entries[idx]))
+    pub(crate) fn entry_by_path(&self, path: &str) -> Option<(usize, &GitIndexEntry)> {
+        self.entries.binary_search_by_key(&path, |entry| &entry.path_name)
+        .map_or(None, |idx| Some((idx, &self.entries[idx])))
     }
 
     /// Removes the index entry at the provided index.
@@ -572,7 +572,7 @@ impl GitIndex {
 
     /// Updates the path name of the index entry with the provided current path name.
     pub(crate) fn rename_entry_by_path(&mut self, current_name: &Path, new_name: &str) {
-        if let Some((index, _)) = self.entry_by_path(current_name) {
+        if let Some((index, _)) = self.entry_by_path(current_name.to_str().unwrap()) {
             let new_entry = self.remove_entry_at(index).with_updated_name(new_name);
             self.add(new_entry);
         }
@@ -581,7 +581,7 @@ impl GitIndex {
     }
 
     // Returns the range of entries which have the provided path prefix.
-    pub(crate) fn entry_range_by_path(&self, prefix: &Path) -> Vec<&GitIndexEntry> {
+    pub(crate) fn entry_range_by_path(&self, prefix: &str) -> Vec<&GitIndexEntry> {
         self.iter_entries()
         .filter(|entry| PathBuf::from(&entry.path_name).starts_with(prefix))
         .collect()

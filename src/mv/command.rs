@@ -17,12 +17,12 @@ impl MvCommand {
     }
 }
 
-fn get_src_and_dst(files: &Vec<String>) -> Result<(Vec<PathBuf>, PathBuf), RustGitError> {
+fn get_src_and_dst(files: &Vec<String>) -> Result<(Vec<&str>, &str), RustGitError> {
     match files.as_slice() {
         [] => Err(RustGitError::new("mv expects at least 2 inputs, got 0")),
         [_] => Err(RustGitError::new("mv expects at least 2 inputs, got 1")),
         [source @ .., destination] => {
-            Ok((source.iter().map(PathBuf::from).collect(), PathBuf::from(destination)))
+            Ok((source.iter().map(|s| s.as_str()).collect(), &destination))
         }
     }
 }
@@ -30,6 +30,8 @@ fn get_src_and_dst(files: &Vec<String>) -> Result<(Vec<PathBuf>, PathBuf), RustG
 struct MvAction {
     source: PathBuf,
     destination: PathBuf,
+    update_index: bool,
+    update_working_dir: bool,
 }
 
 // There are a lot of checks done by C Git before any moves are done, but it's quite complex and using a lot
@@ -39,19 +41,24 @@ struct MvAction {
 ///
 /// Checks that the provided source is valid for moving.
 /// Returns the index of the entry in the index in case it is valid.
-fn check_source(cmd: &MvCommand, repo: &GitRepo, source: &PathBuf, destination: &PathBuf) -> Result<Vec<MvAction>, String> {
+fn check_source(cmd: &MvCommand, repo: &GitRepo, source: &str, destination: &str) -> Result<Vec<MvAction>, String> {
     if cmd.args.dry_run {
         println!("Checking rename of '{source:?}' to '{destination:?}");
     }
 
     if let Ok(source_metadata) = fs::symlink_metadata(&source) {
-        if let Ok(dest_metadata) = fs::symlink_metadata(&destination) {
-            if source == destination && dest_metadata.is_dir() {
-                return Err(String::from("can not move directory into itself"));
-            } else if source_metadata.is_dir() {
-                return Err(String::from("destination already exists"));
-            } 
-        }
+        let existing_dir = 
+            if let Ok(dest_metadata) = fs::symlink_metadata(&destination) {
+                if source == destination && dest_metadata.is_dir() {
+                    return Err(String::from("can not move directory into itself"));
+                } 
+                if source_metadata.is_dir() && dest_metadata.is_file() {
+                    return Err(String::from("destination already exists"));
+                } 
+                true
+            } else {
+                false
+            };
 
         if source_metadata.is_dir() {
             let matching_entries = repo.index.entry_range_by_path(&source);
@@ -59,16 +66,45 @@ fn check_source(cmd: &MvCommand, repo: &GitRepo, source: &PathBuf, destination: 
             if matching_entries.is_empty() {
                 return Err(String::from("source directory is empty"));
             }
+            
+            let mut actions = Vec::new();
 
-            return Ok(matching_entries.iter().map(|entry| {
-                MvAction {
-                    source: PathBuf::from(&entry.path_name),
-                    destination: destination.join(&source),
-                }
-            }).collect());
+            let destination_prefix =
+                if existing_dir {
+                    let source_path_buf = PathBuf::from(&source);
+                    let src_dir_name = source_path_buf.file_name().unwrap();
+                    PathBuf::from(&destination).join(&src_dir_name)
+                } else {
+                    PathBuf::from(&destination)
+                };
+
+
+            actions.push(MvAction {
+                source: PathBuf::from(&source),
+                destination: destination_prefix.to_path_buf(),
+                update_index: false,
+                update_working_dir: true,
+            });
+
+            for entry in matching_entries.iter() {
+                let index_path_name = PathBuf::from(&entry.path_name);
+                let index_file_name = &entry.path_name[source.len()+1..];
+                println!("index_file_name: {:?}", index_file_name);
+                let new_destination = destination_prefix.join(&index_file_name);
+                println!("new_destination: {new_destination:?}");
+
+                actions.push(MvAction {
+                    source: index_path_name,
+                    destination: new_destination,
+                    update_index: true,
+                    update_working_dir: false, // Actual files will already be moved by moving the parent directory.
+                });
+            }
+
+            return Ok(actions);
         }
 
-        if let Some(source_index_entry) = repo.index.entry_by_path(&source) {
+        if let Some((_, source_index_entry)) = repo.index.entry_by_path(&source) {
             if source_index_entry.flags.stage != GitIndexStageFlag::RegularFileNoConflict {
                 return Err(String::from("conflicted"));
             }
@@ -77,7 +113,7 @@ fn check_source(cmd: &MvCommand, repo: &GitRepo, source: &PathBuf, destination: 
                 if cmd.args.force {
                     // only files can override each other:
                     // check both source and destination
-                    if source.is_file() || source.is_symlink() {
+                    if source_metadata.is_file() || source_metadata.is_symlink() {
                         if cmd.args.verbose {
                             println!("overwriting {destination:?}");
                         }
@@ -93,8 +129,10 @@ fn check_source(cmd: &MvCommand, repo: &GitRepo, source: &PathBuf, destination: 
                 }
             }
             return Ok(vec![MvAction {
-                source: source.to_path_buf(),
-                destination: destination.to_path_buf(),
+                source: PathBuf::from(source),
+                destination: PathBuf::from(destination),
+                update_index: true,
+                update_working_dir: true,
             }]);
         }
 
@@ -107,8 +145,10 @@ fn check_source(cmd: &MvCommand, repo: &GitRepo, source: &PathBuf, destination: 
                 } 
             }
             return Ok(vec![MvAction {
-                source: source.to_path_buf(),
-                destination: destination.to_path_buf(),
+                source: PathBuf::from(source),
+                destination: PathBuf::from(destination),
+                update_index: true,
+                update_working_dir: true,
             }]);
         } else {
             return Err(String::from("bad source"));
@@ -132,15 +172,19 @@ impl GitCommand for MvCommand {
                         }
 
                         if !self.args.dry_run {
-                            match fs::rename(&action.source, &action.destination) {
-                                Ok(_) => {
-                                    repo.index.rename_entry_by_path(&action.source, &action.destination.to_str().unwrap());
-                                },
-                                Err(_) => {
-                                    if !self.args.skip {
-                                        return Err(RustGitError::new(format!("renaming {:?} failed", action.source)));
-                                    }
-                                },
+                            if action.update_working_dir {
+                                match fs::rename(&action.source, &action.destination) {
+                                    Ok(_) => (),
+                                    Err(err) => {
+                                        if !self.args.skip {
+                                            return Err(RustGitError::new(format!("renaming {:?} failed: {:?}", action.source, err)));
+                                        }
+                                    },
+                                }
+                            }
+
+                            if action.update_index {
+                                repo.index.rename_entry_by_path(&action.source, &action.destination.to_str().unwrap());
                             }
                         }
                     }
