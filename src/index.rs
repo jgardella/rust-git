@@ -537,11 +537,6 @@ impl GitIndex {
         self.entries.iter()
     }
 
-    /// Returns an iterator over the provided range of index entries.
-    pub(crate) fn iter_entries_range(&self, start: usize, end: usize) -> impl Iterator<Item=&GitIndexEntry> {
-        self.entries[start..end].iter()
-    }
-
     /// Filters out entries for which the provided predicate returns false.
     /// Returns the path names of the removed entries.
     pub(crate) fn filter_entries(&mut self, mut predicate: impl FnMut(&GitIndexEntry) -> bool) -> Vec<String> {
