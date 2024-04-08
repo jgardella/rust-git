@@ -1,7 +1,6 @@
 mod integration_tests {
 
     use assert_cmd::{Command, prelude::OutputAssertExt};
-    use assert_fs::TempDir;
     use test_helpers::{TempDirExt, TestGitRepo};
 
     #[test]

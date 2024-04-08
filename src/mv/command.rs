@@ -43,7 +43,7 @@ struct MvAction {
 /// Returns the index of the entry in the index in case it is valid.
 fn check_source(cmd: &MvCommand, repo: &GitRepo, source: &str, destination: &str) -> Result<Vec<MvAction>, String> {
     if cmd.args.dry_run {
-        println!("Checking rename of '{source:?}' to '{destination:?}");
+        println!("Checking rename of {source:?} to {destination:?}");
     }
 
     if let Ok(source_metadata) = fs::symlink_metadata(&source) {
@@ -55,9 +55,18 @@ fn check_source(cmd: &MvCommand, repo: &GitRepo, source: &str, destination: &str
                 if source_metadata.is_dir() && dest_metadata.is_file() {
                     return Err(String::from("destination already exists"));
                 } 
-                true
+                dest_metadata.is_dir()
             } else {
                 false
+            };
+
+        let destination_prefix =
+            if existing_dir {
+                let source_path_buf = PathBuf::from(&source);
+                let src_dir_name = source_path_buf.file_name().unwrap();
+                PathBuf::from(&destination).join(&src_dir_name)
+            } else {
+                PathBuf::from(&destination)
             };
 
         if source_metadata.is_dir() {
@@ -69,16 +78,6 @@ fn check_source(cmd: &MvCommand, repo: &GitRepo, source: &str, destination: &str
             
             let mut actions = Vec::new();
 
-            let destination_prefix =
-                if existing_dir {
-                    let source_path_buf = PathBuf::from(&source);
-                    let src_dir_name = source_path_buf.file_name().unwrap();
-                    PathBuf::from(&destination).join(&src_dir_name)
-                } else {
-                    PathBuf::from(&destination)
-                };
-
-
             actions.push(MvAction {
                 source: PathBuf::from(&source),
                 destination: destination_prefix.to_path_buf(),
@@ -89,9 +88,7 @@ fn check_source(cmd: &MvCommand, repo: &GitRepo, source: &str, destination: &str
             for entry in matching_entries.iter() {
                 let index_path_name = PathBuf::from(&entry.path_name);
                 let index_file_name = &entry.path_name[source.len()+1..];
-                println!("index_file_name: {:?}", index_file_name);
                 let new_destination = destination_prefix.join(&index_file_name);
-                println!("new_destination: {new_destination:?}");
 
                 actions.push(MvAction {
                     source: index_path_name,
@@ -110,6 +107,15 @@ fn check_source(cmd: &MvCommand, repo: &GitRepo, source: &str, destination: &str
             }
 
             if let Ok(_) = fs::symlink_metadata(&destination) {
+                if existing_dir {
+                    return Ok(vec![MvAction {
+                        source: PathBuf::from(source),
+                        destination: destination_prefix,
+                        update_index: true,
+                        update_working_dir: true,
+                    }]);
+                }
+
                 if cmd.args.force {
                     // only files can override each other:
                     // check both source and destination
@@ -148,7 +154,7 @@ fn check_source(cmd: &MvCommand, repo: &GitRepo, source: &str, destination: &str
                 source: PathBuf::from(source),
                 destination: PathBuf::from(destination),
                 update_index: true,
-                update_working_dir: true,
+                update_working_dir: false,
             }]);
         } else {
             return Err(String::from("bad source"));
@@ -189,10 +195,11 @@ impl GitCommand for MvCommand {
                         }
                     }
                 }
-                Err(err) =>
+                Err(err) => {
                     if !self.args.skip {
                         return Err(RustGitError::new(String::from(format!("{err}, source={source:?}, destination={destination:?}"))));
                     }
+                }
             }
         }
 
