@@ -33,11 +33,12 @@ fn process_path(path: &str, repo: &mut GitRepo) -> Result<(), RustGitError> {
 }
 
 fn add_one_path(path: &str, metadata: Metadata, repo: &mut GitRepo) -> Result<(), RustGitError> {
+    let path = Path::new(path);
     // Write object file.
-    let repo_path = repo.path_to_git_repo_path(Path::new(path))?;
-    let obj_id = repo.index_path(&repo_path, &metadata)?;
+    let obj_id = repo.index_path(&path, &metadata)?;
 
     // Make new index entry.
+    let repo_path = repo.path_to_git_repo_path(Path::new(path))?;
     let index_entry = GitIndexEntry::new(&repo_path, &metadata, obj_id);
 
     // Update index.

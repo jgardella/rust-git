@@ -1,5 +1,5 @@
 
-use std::fs;
+use std::path::Path;
 
 use crate::{command::GitCommand, repo::RepoState, RustGitError};
 
@@ -45,12 +45,18 @@ impl GitCommand for RmCommand {
             ()
         }
 
+        let mut file_repo_paths = Vec::new();
+        
+        for file in self.args.files.iter() {
+            file_repo_paths.push(repo.path_to_git_repo_path(Path::new(file))?.as_string());
+        }
+
         // First remove the names from the index: we won't commit
         // the index unless all of them succeed.
         let paths_to_remove = repo.index.filter_entries(|entry| {
-            if self.args.files.contains(&entry.path_name) {
+            if file_repo_paths.contains(&entry.path_name.as_string()) {
                 if !self.args.quiet {
-                    println!("rm '{}'", entry.path_name);
+                    println!("rm '{}'", entry.path_name.as_string());
                 }
 
                 return false;
@@ -79,8 +85,8 @@ impl GitCommand for RmCommand {
         // in the middle)
         if !self.args.cached {
             for (i, path) in paths_to_remove.iter().enumerate() {
-                match (i, fs::remove_file(path)) {
-                    (0, Err(_)) => return Err(RustGitError::new(format!("git rm: '{path}'"))),
+                match (i, repo.remove_file(&path)) {
+                    (0, Err(_)) => return Err(RustGitError::new(format!("git rm: '{}'", path.as_string()))),
                     _ => ()
                 }
             }

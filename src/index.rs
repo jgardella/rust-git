@@ -239,7 +239,7 @@ pub(crate) struct GitIndexEntry {
     /// (without leading slash). '/' is used as path separator. The special
     /// path components ".", ".." and ".git" (without quotes) are disallowed.
     /// Trailing slash is also disallowed.
-    pub path_name: String,
+    pub path_name: GitRepoPath,
 }
 
 impl GitIndexEntry {
@@ -256,7 +256,7 @@ impl GitIndexEntry {
         fixed[40..60].copy_from_slice(&GitObjectId::serialize(&entry.name));
         fixed[60..62].copy_from_slice(&GitIndexFlags::serialize(&entry.flags));
 
-        let path_name_bytes = entry.path_name.as_bytes().to_vec();
+        let path_name_bytes = entry.path_name.as_string().as_bytes().to_vec();
         let padding_byte_count = {
             let remainder = (62 + path_name_bytes.len()) % 8;
             if remainder == 0 {
@@ -327,7 +327,7 @@ impl GitIndexEntry {
             file_size,
             name,
             flags,
-            path_name,
+            path_name: GitRepoPath(PathBuf::from(path_name)),
         }, padded_processed_bytes))
     }
 
@@ -346,7 +346,6 @@ impl GitIndexEntry {
                 }
             };
 
-        let path_name = path.as_string();
 
         GitIndexEntry {
             last_metadata_update:  GitIndexTimestamp {
@@ -368,21 +367,20 @@ impl GitIndexEntry {
                 assume_valid: false,
                 extended: false,
                 stage: GitIndexStageFlag::RegularFileNoConflict,
-                name_length: path_name.len() as u16,
+                name_length: path.as_string().len() as u16,
             },
-            path_name: String::from(path_name),
+            path_name: path.clone(),
         }
     }
 
     /// Creates a copy of the provided index with a new name.
     pub(crate) fn with_updated_name(self, new_name: &GitRepoPath) -> GitIndexEntry {
-        let new_name = new_name.as_string();
         GitIndexEntry { 
             flags: GitIndexFlags { 
-                name_length: new_name.len() as u16,
+                name_length: new_name.as_string().len() as u16,
                 ..self.flags 
             }, 
-            path_name: new_name, 
+            path_name: new_name.clone(), 
             ..self 
         }
     }
@@ -542,7 +540,7 @@ impl GitIndex {
 
     /// Filters out entries for which the provided predicate returns false.
     /// Returns the path names of the removed entries.
-    pub(crate) fn filter_entries(&mut self, mut predicate: impl FnMut(&GitIndexEntry) -> bool) -> Vec<String> {
+    pub(crate) fn filter_entries(&mut self, mut predicate: impl FnMut(&GitIndexEntry) -> bool) -> Vec<GitRepoPath> {
         let mut removed_paths = Vec::new();
         self.entries.retain(|entry| {
             let result = predicate(entry);
@@ -556,7 +554,7 @@ impl GitIndex {
     }
 
     /// Tries to find an index entry with the provided path.
-    pub(crate) fn entry_by_path(&self, path: &str) -> Option<(usize, &GitIndexEntry)> {
+    pub(crate) fn entry_by_path(&self, path: &GitRepoPath) -> Option<(usize, &GitIndexEntry)> {
         self.entries.binary_search_by_key(&path, |entry| &entry.path_name)
         .map_or(None, |idx| Some((idx, &self.entries[idx])))
     }
@@ -570,7 +568,7 @@ impl GitIndex {
 
     /// Updates the path name of the index entry with the provided current path name.
     pub(crate) fn rename_entry_by_path(&mut self, current_name: &GitRepoPath, new_name: &GitRepoPath) {
-        if let Some((index, _)) = self.entry_by_path(&current_name.as_string()) {
+        if let Some((index, _)) = self.entry_by_path(&current_name) {
             let new_entry = self.remove_entry_at(index).with_updated_name(new_name);
             self.add(new_entry);
         }
@@ -579,16 +577,18 @@ impl GitIndex {
     }
 
     // Returns the range of entries which have the provided path prefix.
-    pub(crate) fn entry_range_by_path(&self, prefix: &str) -> Vec<&GitIndexEntry> {
+    pub(crate) fn entry_range_by_path(&self, prefix: &GitRepoPath) -> Vec<&GitIndexEntry> {
         self.iter_entries()
-        .filter(|entry| PathBuf::from(&entry.path_name).starts_with(prefix))
+        .filter(|entry| entry.path_name.as_path_buf().starts_with(prefix.as_string()))
         .collect()
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::object::GitObjectId;
+    use std::path::PathBuf;
+
+    use crate::{object::GitObjectId, repo::GitRepoPath};
 
     use super::{GitIndex, GitIndexEntry, GitIndexFlags, GitIndexMode, GitIndexStageFlag, GitIndexTimestamp};
 
@@ -616,24 +616,27 @@ mod tests {
                 stage: GitIndexStageFlag::RegularFileNoConflict,
                 name_length: 8,
             }, 
-            path_name: String::from("test.txt")
+            path_name: GitRepoPath(PathBuf::from("test.txt"))
         }
     }
 
     #[test]
     fn should_add_entries_in_sorted_order() {
         let mut index = GitIndex::new();
-        let entry1 = GitIndexEntry { path_name: String::from("test.txt"), ..get_test_index_entry() };
-        let entry2 = GitIndexEntry { path_name: String::from("fest.txt"), ..get_test_index_entry() };
-        let entry3 = GitIndexEntry { path_name: String::from("best.txt"), ..get_test_index_entry() };
+        let path1 = GitRepoPath(PathBuf::from("test.txt"));
+        let path2 = GitRepoPath(PathBuf::from("fest.txt"));
+        let path3 = GitRepoPath(PathBuf::from("best.txt"));
+        let entry1 = GitIndexEntry { path_name: path1, ..get_test_index_entry() };
+        let entry2 = GitIndexEntry { path_name: path2, ..get_test_index_entry() };
+        let entry3 = GitIndexEntry { path_name: path3, ..get_test_index_entry() };
 
         index.add(entry1);
         index.add(entry2);
         index.add(entry3);
 
-        assert_eq!(index.entries[0].path_name, "best.txt");
-        assert_eq!(index.entries[1].path_name, "fest.txt");
-        assert_eq!(index.entries[2].path_name, "test.txt");
+        assert_eq!(index.entries[0].path_name, GitRepoPath(PathBuf::from("best.txt")));
+        assert_eq!(index.entries[1].path_name, GitRepoPath(PathBuf::from("fest.txt")));
+        assert_eq!(index.entries[2].path_name, GitRepoPath(PathBuf::from("test.txt")));
     }
 
     mod serialization {
@@ -649,7 +652,9 @@ mod tests {
         }
 
         mod git_index {
-            use crate::{error::RustGitError, index::{GitIndex, GitIndexEntry, GitIndexFlags, GitIndexHeader, GitIndexMode, GitIndexStageFlag, GitIndexTimestamp, GitIndexVersion}, object::GitObjectId};
+            use std::path::PathBuf;
+
+            use crate::{error::RustGitError, index::{GitIndex, GitIndexEntry, GitIndexFlags, GitIndexHeader, GitIndexMode, GitIndexStageFlag, GitIndexTimestamp, GitIndexVersion}, object::GitObjectId, repo::GitRepoPath};
 
             #[test]
             fn should_roundtrip_empty() {
@@ -696,7 +701,7 @@ mod tests {
                                 stage: GitIndexStageFlag::RegularFileNoConflict,
                                 name_length: 8,
                             }, 
-                            path_name: String::from("test.txt")
+                            path_name: GitRepoPath(PathBuf::from("test.txt"))
                         },
                         GitIndexEntry { 
                             last_metadata_update: GitIndexTimestamp {
@@ -721,7 +726,7 @@ mod tests {
                                 stage: GitIndexStageFlag::RegularFileNoConflict,
                                 name_length: 9,
                             }, 
-                            path_name: String::from("test2.txt")
+                            path_name: GitRepoPath(PathBuf::from("test2.txt"))
                         },
 
                     ],
@@ -754,9 +759,9 @@ mod tests {
         }
 
         mod git_index_entry {
-            use std::iter;
+            use std::{iter, path::PathBuf};
 
-            use crate::index::{tests::get_test_index_entry, GitIndexEntry, GitIndexFlags};
+            use crate::{index::{tests::get_test_index_entry, GitIndexEntry, GitIndexFlags}, repo::GitRepoPath};
 
             #[test]
             fn should_roundtrip() {
@@ -770,7 +775,7 @@ mod tests {
                 let test_index_entry = get_test_index_entry();
                 let git_index_entry = GitIndexEntry { 
                     flags: GitIndexFlags { name_length: 0xFFF, ..test_index_entry.flags },
-                    path_name: iter::repeat('A').take(0xFFF1).collect(),
+                    path_name: GitRepoPath(PathBuf::from(iter::repeat('A').take(0xFFF1).collect::<String>())),
                     ..test_index_entry
                 };
                 let result = GitIndexEntry::deserialize(&GitIndexEntry::serialize(&git_index_entry));

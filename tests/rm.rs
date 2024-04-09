@@ -178,4 +178,46 @@ test2.txt");
         .assert()
         .success();
     }
+
+    #[test]
+    fn should_remove_file_up_a_folder() {
+        let test_git_repo = TestGitRepo::new();
+        test_git_repo.temp_dir.create_test_dir("test_dir");
+        test_git_repo.temp_dir.create_test_file("test.txt", b"test");
+
+        test_git_repo.init();
+        test_git_repo.add("test.txt");
+
+        let cmd =
+            Command::cargo_bin("rust-git")
+            .unwrap()
+            .arg("rm")
+            .arg("../test.txt")
+            .current_dir(test_git_repo.temp_dir.join("test_dir"))
+            .unwrap();
+
+        cmd.assert().success();
+
+        let ls_files_output = test_git_repo.ls_files();
+        assert_eq!(ls_files_output, "");
+
+        test_git_repo.temp_dir.child("test.txt").assert(predicate::path::missing());
+    }
+
+    #[test]
+    fn should_fail_to_remove_file_outside_repo() {
+        let test_git_repo = TestGitRepo::new();
+
+        test_git_repo.init_in_dir("my_proj");
+        test_git_repo.temp_dir.create_test_file("test.txt", b"test");
+
+        Command::cargo_bin("rust-git")
+        .unwrap()
+        .arg("rm")
+        .arg("../test.txt")
+        .current_dir(test_git_repo.temp_dir.join("my_proj"))
+        .assert()
+        .failure()
+        .stderr("path \"../test.txt\" is outside of repo");
+    }
 }

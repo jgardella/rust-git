@@ -566,4 +566,77 @@ test2.txt");
         let ls_files_output = test_git_repo.ls_files();
         assert_eq!(ls_files_output, "");
     }
+
+    #[test]
+    fn should_move_file_up_a_folder() {
+        let test_git_repo = TestGitRepo::new();
+        test_git_repo.temp_dir.create_test_dir("test_dir");
+        test_git_repo.temp_dir.create_test_file("test_dir/test.txt", b"test");
+
+        test_git_repo.init();
+        test_git_repo.add("test_dir/test.txt");
+
+        let cmd =
+            Command::cargo_bin("rust-git")
+            .unwrap()
+            .arg("mv")
+            .arg("test.txt")
+            .arg("..")
+            .current_dir(test_git_repo.temp_dir.join("test_dir"))
+            .unwrap();
+
+        cmd.assert().success();
+
+        let ls_files_output = test_git_repo.ls_files();
+        assert_eq!(ls_files_output, "test.txt");
+
+        test_git_repo.temp_dir.child("test.txt").assert(predicate::path::exists());
+        test_git_repo.temp_dir.child("test_dir/test.txt").assert(predicate::path::missing());
+    }
+
+    #[test]
+    fn should_move_file_around_folders() {
+        let test_git_repo = TestGitRepo::new();
+        test_git_repo.temp_dir.create_test_dir("test_dir");
+        test_git_repo.temp_dir.create_test_dir("test_dir2");
+        test_git_repo.temp_dir.create_test_file("test_dir/test.txt", b"test");
+
+        test_git_repo.init();
+        test_git_repo.add("test_dir/test.txt");
+
+        let cmd =
+            Command::cargo_bin("rust-git")
+            .unwrap()
+            .arg("mv")
+            .arg("test.txt")
+            .arg("../test_dir2")
+            .current_dir(test_git_repo.temp_dir.join("test_dir"))
+            .unwrap();
+
+        cmd.assert().success();
+
+        let ls_files_output = test_git_repo.ls_files();
+        assert_eq!(ls_files_output, "test_dir2/test.txt");
+
+        test_git_repo.temp_dir.child("test_dir2/test.txt").assert(predicate::path::exists());
+        test_git_repo.temp_dir.child("test_dir/test.txt").assert(predicate::path::missing());
+    }
+
+    #[test]
+    fn should_fail_to_mv_file_to_outside_repo() {
+        let test_git_repo = TestGitRepo::new();
+
+        test_git_repo.init_in_dir("my_proj");
+        test_git_repo.temp_dir.create_test_file("my_proj/test.txt", b"test");
+
+        Command::cargo_bin("rust-git")
+        .unwrap()
+        .arg("mv")
+        .arg("test.txt")
+        .arg("..")
+        .current_dir(test_git_repo.temp_dir.join("my_proj"))
+        .assert()
+        .failure()
+        .stderr("path \"..\" is outside of repo");
+    }
 }
