@@ -144,7 +144,7 @@ fn check_source(cmd: &MvCommand, repo: &GitRepo, source: &str, destination: &str
 
         return Err(String::from("not under version control"));
     } else {
-        if let Some(_) = repo.index.entry_by_path(source) {
+        if let Some(_) = repo.index.entry_by_path(&source) {
             if let Some(_) = repo.index.entry_by_path(&destination) {
                 if !cmd.args.force {
                     return Err(String::from("destination exists"));
@@ -190,7 +190,9 @@ impl GitCommand for MvCommand {
                             }
 
                             if action.update_index {
-                                repo.index.rename_entry_by_path(&action.source, &action.destination.to_str().unwrap());
+                                let source_repo_path = repo.path_to_git_repo_path(&action.source)?;
+                                let destination_repo_path = repo.path_to_git_repo_path(&action.destination)?;
+                                repo.index.rename_entry_by_path(&source_repo_path, &destination_repo_path);
                             }
                         }
                     }

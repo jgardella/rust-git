@@ -1,4 +1,4 @@
-use std::fs::{self, Metadata};
+use std::{fs::{self, Metadata}, path::Path};
 
 use crate::{command::GitCommand, index::GitIndexEntry, repo::{GitRepo, RepoState}, RustGitError};
 
@@ -34,10 +34,11 @@ fn process_path(path: &str, repo: &mut GitRepo) -> Result<(), RustGitError> {
 
 fn add_one_path(path: &str, metadata: Metadata, repo: &mut GitRepo) -> Result<(), RustGitError> {
     // Write object file.
-    let obj_id = repo.index_path(path, &metadata)?;
+    let repo_path = repo.path_to_git_repo_path(Path::new(path))?;
+    let obj_id = repo.index_path(&repo_path, &metadata)?;
 
     // Make new index entry.
-    let index_entry = GitIndexEntry::new(path, &metadata, obj_id);
+    let index_entry = GitIndexEntry::new(&repo_path, &metadata, obj_id);
 
     // Update index.
     repo.index.add(index_entry);

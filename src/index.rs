@@ -2,7 +2,7 @@
 
 use std::{fmt::Display, fs::{self, File, Metadata}, io::Write, os::unix::fs::{MetadataExt, PermissionsExt}, path::{Path, PathBuf}};
 use sha1::{Digest, Sha1};
-use crate::{error::RustGitError, hash::Hasher, object::GitObjectId};
+use crate::{error::RustGitError, hash::Hasher, object::GitObjectId, repo::GitRepoPath};
 
 const INDEX_HEADER_SIGNATURE: &[u8; 4] = b"DIRC";
 
@@ -331,7 +331,7 @@ impl GitIndexEntry {
         }, padded_processed_bytes))
     }
 
-    pub(crate) fn new(path: &str, metadata: &Metadata, obj_id: GitObjectId) -> GitIndexEntry {
+    pub(crate) fn new(path: &GitRepoPath, metadata: &Metadata, obj_id: GitObjectId) -> GitIndexEntry {
         let mode =
             if metadata.is_symlink() {
                 GitIndexMode::SymbolicLink
@@ -345,6 +345,8 @@ impl GitIndexEntry {
                     GitIndexMode::RegularFile0644
                 }
             };
+
+        let path_name = path.as_string();
 
         GitIndexEntry {
             last_metadata_update:  GitIndexTimestamp {
@@ -366,20 +368,21 @@ impl GitIndexEntry {
                 assume_valid: false,
                 extended: false,
                 stage: GitIndexStageFlag::RegularFileNoConflict,
-                name_length: path.len() as u16,
+                name_length: path_name.len() as u16,
             },
-            path_name: String::from(path),
+            path_name: String::from(path_name),
         }
     }
 
     /// Creates a copy of the provided index with a new name.
-    pub(crate) fn with_updated_name(self, new_name: &str) -> GitIndexEntry {
+    pub(crate) fn with_updated_name(self, new_name: &GitRepoPath) -> GitIndexEntry {
+        let new_name = new_name.as_string();
         GitIndexEntry { 
-            path_name: String::from(new_name), 
             flags: GitIndexFlags { 
                 name_length: new_name.len() as u16,
                 ..self.flags 
             }, 
+            path_name: new_name, 
             ..self 
         }
     }
@@ -566,8 +569,8 @@ impl GitIndex {
     }
 
     /// Updates the path name of the index entry with the provided current path name.
-    pub(crate) fn rename_entry_by_path(&mut self, current_name: &Path, new_name: &str) {
-        if let Some((index, _)) = self.entry_by_path(current_name.to_str().unwrap()) {
+    pub(crate) fn rename_entry_by_path(&mut self, current_name: &GitRepoPath, new_name: &GitRepoPath) {
+        if let Some((index, _)) = self.entry_by_path(&current_name.as_string()) {
             let new_entry = self.remove_entry_at(index).with_updated_name(new_name);
             self.add(new_entry);
         }
