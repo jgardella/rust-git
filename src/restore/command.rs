@@ -18,6 +18,7 @@ impl RestoreCommand {
 }
 
 impl GitCommand for RestoreCommand {
+    // TODO: implement full restore functionality after implementing commits and branches
     fn execute(&self, repo_state: RepoState) -> Result<(), RustGitError>
     {
         let repo = repo_state.try_get()?;
@@ -35,7 +36,7 @@ impl GitCommand for RestoreCommand {
                         fs::write(&index_entry.path_name, obj.content)?;
                         println!("restored {}", index_entry.path_name);
                     },
-                    None => println!("failed to restore {}", index_entry.path_name),
+                    None => println!("obj {} missing for {}", index_entry.name, index_entry.path_name),
                 }
             }
         }
