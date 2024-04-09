@@ -16,7 +16,7 @@ mod mv;
 mod restore;
 mod rm;
 
-use std::{path::{Path, PathBuf}, process::ExitCode};
+use std::{path::PathBuf, process::ExitCode};
 
 use add::cli::AddArgs;
 use cat_file::cli::CatFileArgs;

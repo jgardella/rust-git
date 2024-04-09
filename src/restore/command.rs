@@ -1,5 +1,5 @@
 
-use std::fs;
+use std::{fs, path::Path};
 
 use crate::{command::GitCommand, repo::RepoState, RustGitError};
 
@@ -25,15 +25,16 @@ impl GitCommand for RestoreCommand {
 
         for file in self.args.files.iter() {
             println!("restoring {file}");
+            let file_repo_path = repo.path_to_git_repo_path(Path::new(file))?;
 
-            let index_entries = repo.index.entry_range_by_path(&file);
+            let index_entries = repo.index.entry_range_by_path(&file_repo_path);
 
             for index_entry in index_entries {
                 let obj = repo.read_object(&index_entry.name)?;
 
                 match obj {
                     Some(obj) => {
-                        fs::write(&index_entry.path_name, obj.content)?;
+                        repo.write_file(&index_entry.path_name, obj.content)?;
                         println!("restored {}", index_entry.path_name);
                     },
                     None => println!("obj {} missing for {}", index_entry.name, index_entry.path_name),

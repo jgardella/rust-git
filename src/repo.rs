@@ -1,4 +1,5 @@
-use std::env;
+use std::fmt::Display;
+use std::{env, fs};
 use std::fs::{create_dir_all, Metadata};
 use std::path::{Path, PathBuf};
 
@@ -30,8 +31,8 @@ impl RepoState {
 }
 
 /// Represents a path which is relative to the root of the git repository.
-#[derive(Debug)]
-pub(crate) struct GitRepoPath(PathBuf);
+#[derive(Clone, Debug)]
+pub(crate) struct GitRepoPath(pub(crate) PathBuf); // TODO: creation of GitRepoPath should only be done in repo
 
 impl GitRepoPath {
     pub fn as_path_buf(&self) -> PathBuf {
@@ -44,10 +45,36 @@ impl GitRepoPath {
     }
 }
 
+impl Ord for GitRepoPath {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.0.cmp(&other.0)
+    }
+}
+
+impl PartialOrd for GitRepoPath {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl PartialEq for GitRepoPath {
+    fn eq(&self, other: &Self) -> bool {
+        self.as_string() == other.as_string()
+    }
+}
+
+impl Eq for GitRepoPath { }
+
+impl Display for GitRepoPath {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_string())
+    }
+}
+
 pub(crate) struct GitRepo {
     pub(crate) config: GitConfig,
     pub(crate) index: GitIndex,
-    /// Path to root directory of the repo.
+    /// Absolute path to root directory of the repo.
     pub(crate) root_dir: PathBuf,
     /// Path to working directory relative to root of repo.
     pub(crate) working_dir: PathBuf,
@@ -70,11 +97,33 @@ impl GitRepo {
         }
     }
 
+    pub fn normalize_path(&self, path: &Path) -> Option<PathBuf> {
+        let mut normalized_path = PathBuf::new();
+
+        for component in path.components() {
+            match &component {
+                std::path::Component::ParentDir => {
+                    if !normalized_path.pop() {
+                        // Path is outside repo.
+                        return None;
+                    }
+                },
+                std::path::Component::CurDir => (),
+                _ => normalized_path.push(component)
+            }
+        }
+
+        Some(normalized_path)
+    }
+
     /// Converts the provided path to a canonicalized GitRepoPath relative to the root of the repo.
     /// Will return an error if the path is not within the repo.
     pub fn path_to_git_repo_path(&self, path: &Path) -> Result<GitRepoPath, RustGitError> {
         let git_repo_path = self.working_dir.join(path);
-        Ok(GitRepoPath(git_repo_path))
+        match self.normalize_path(&git_repo_path) {
+            Some(normalized_path) => Ok(GitRepoPath(normalized_path)),
+            None => Err(RustGitError::new(format!("path {path:?} is outside of repo")))
+        }
     }
 
     /// Creates a new GitRepo.
@@ -104,14 +153,14 @@ impl GitRepo {
         // by the command, but it's simple for now.
         let index = GitIndex::open(&resolved_git_dir)?;
 
-        let root_dir = resolved_git_dir.parent().unwrap().to_path_buf();
+        let root_dir = resolved_git_dir.parent().unwrap().canonicalize()?;
         let abs_root_dir = root_dir.canonicalize()?;
-        let working_dir = current_dir.strip_prefix(abs_root_dir)?.to_path_buf();
+        let working_dir = current_dir.strip_prefix(&abs_root_dir)?.to_path_buf();
 
         Ok(RepoState::Repo(GitRepo {
             config,
             index,
-            root_dir,
+            root_dir: abs_root_dir,
             working_dir,
             git_dir: resolved_git_dir,
         }))
@@ -164,9 +213,8 @@ impl GitRepo {
         Ok(Some(obj))
     }
 
-    pub(crate) fn index_path(&mut self, path: &GitRepoPath, metadata: &Metadata) -> Result<GitObjectId, RustGitError> {
+    pub(crate) fn index_path(&mut self, path: &Path, metadata: &Metadata) -> Result<GitObjectId, RustGitError> {
         if metadata.is_file() {
-            let GitRepoPath(path) = path;
             let mut file = File::open(path)?;
             let mut content = String::new();
             file.read_to_string(&mut content)?;
@@ -178,6 +226,16 @@ impl GitRepo {
         }
 
         Err(RustGitError::new("Unsupported file type"))
+    }
+
+    /// Write file from root of repo.
+    pub(crate) fn write_file(&self, path: &GitRepoPath, contents: impl AsRef<[u8]>) -> Result<(), RustGitError> {
+        Ok(fs::write(self.root_dir.join(path.as_string()), contents)?)
+    }
+
+    /// Remove file from root of repo.
+    pub(crate) fn remove_file(&self, path: &GitRepoPath) -> Result<(), RustGitError> {
+        Ok(fs::remove_file(self.root_dir.join(path.as_string()))?)
     }
 
     pub(crate) fn index(&mut self, obj_type: GitObjectType, content: String, write: bool) -> Result<GitObjectId, RustGitError> {

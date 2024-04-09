@@ -29,6 +29,68 @@ mod integration_tests {
 test2.txt
 test_dir/test_in_dir.txt")
     }
+
+    #[test]
+    fn should_add_file_to_index_from_nested_dir() {
+        let test_git_repo = TestGitRepo::new();
+        test_git_repo.temp_dir.create_test_dir("test_dir");
+        test_git_repo.temp_dir.create_test_file("test_dir/test_in_dir.txt", b"test_in_dir");
+
+        test_git_repo.init();
+
+        let cmd = 
+            Command::cargo_bin("rust-git")
+            .unwrap()
+            .arg("add")
+            .arg("test_in_dir.txt")
+            .current_dir(test_git_repo.temp_dir.join("test_dir"))
+            .unwrap();
+
+        cmd.assert().success();
+
+        let ls_files_output = test_git_repo.ls_files();
+        assert_eq!(ls_files_output, "test_dir/test_in_dir.txt")
+    }
+
+    #[test]
+    fn should_add_file_from_upper_directory() {
+        let test_git_repo = TestGitRepo::new();
+        test_git_repo.temp_dir.create_test_dir("test_dir");
+        test_git_repo.temp_dir.create_test_file("test.txt", b"test");
+        test_git_repo.temp_dir.create_test_file("test_dir/test_in_dir.txt", b"test_in_dir");
+
+        test_git_repo.init();
+
+        let cmd = 
+            Command::cargo_bin("rust-git")
+            .unwrap()
+            .arg("add")
+            .arg("../test.txt")
+            .current_dir(test_git_repo.temp_dir.join("test_dir"))
+            .unwrap();
+
+        cmd.assert().success();
+
+        let ls_files_output = test_git_repo.ls_files();
+        assert_eq!(ls_files_output, "test.txt")
+    }
+
+    #[test]
+    fn should_fail_to_add_file_from_outside_repo() {
+        let test_git_repo = TestGitRepo::new();
+        test_git_repo.temp_dir.create_test_file("test.txt", b"test");
+
+        test_git_repo.init_in_dir("my_proj");
+
+        Command::cargo_bin("rust-git")
+        .unwrap()
+        .arg("add")
+        .arg("../test.txt")
+        .current_dir(test_git_repo.temp_dir.join("my_proj"))
+        .assert()
+        .failure()
+        .stderr("path \"../test.txt\" is outside of repo");
+    }
 }
 
 mod compatibility_tests {

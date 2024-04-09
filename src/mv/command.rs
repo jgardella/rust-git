@@ -1,7 +1,7 @@
 
-use std::{fs, path::{PathBuf, MAIN_SEPARATOR_STR}};
+use std::{fs, path::{Path, PathBuf, MAIN_SEPARATOR_STR}};
 
-use crate::{command::GitCommand, index::GitIndexStageFlag, repo::{GitRepo, RepoState}, RustGitError};
+use crate::{command::GitCommand, index::GitIndexStageFlag, repo::{GitRepo, GitRepoPath, RepoState}, RustGitError};
 
 use super::cli::MvArgs;
 
@@ -41,7 +41,7 @@ struct MvAction {
 ///
 /// Checks that the provided source is valid for moving.
 /// Returns the index of the entry in the index in case it is valid.
-fn check_source(cmd: &MvCommand, repo: &GitRepo, source: &str, destination: &str) -> Result<Vec<MvAction>, String> {
+fn check_source(cmd: &MvCommand, repo: &GitRepo, source: &str, destination: &str, source_repo_path: &GitRepoPath, destination_repo_path: &GitRepoPath) -> Result<Vec<MvAction>, String> {
     if cmd.args.dry_run {
         println!("Checking rename of {source:?} to {destination:?}");
     }
@@ -70,7 +70,7 @@ fn check_source(cmd: &MvCommand, repo: &GitRepo, source: &str, destination: &str
             };
 
         if source_metadata.is_dir() {
-            let matching_entries = repo.index.entry_range_by_path(&source);
+            let matching_entries = repo.index.entry_range_by_path(&source_repo_path);
 
             if matching_entries.is_empty() {
                 return Err(String::from("source directory is empty"));
@@ -86,8 +86,8 @@ fn check_source(cmd: &MvCommand, repo: &GitRepo, source: &str, destination: &str
             });
 
             for entry in matching_entries.iter() {
-                let index_path_name = PathBuf::from(&entry.path_name);
-                let index_file_name = &entry.path_name[source.len()+1..];
+                let index_path_name = entry.path_name.as_path_buf();
+                let index_file_name = &entry.path_name.as_string()[source.len()+1..];
                 let new_destination = destination_prefix.join(&index_file_name);
 
                 actions.push(MvAction {
@@ -101,7 +101,7 @@ fn check_source(cmd: &MvCommand, repo: &GitRepo, source: &str, destination: &str
             return Ok(actions);
         }
 
-        if let Some((_, source_index_entry)) = repo.index.entry_by_path(&source) {
+        if let Some((_, source_index_entry)) = repo.index.entry_by_path(&source_repo_path) {
             if source_index_entry.flags.stage != GitIndexStageFlag::RegularFileNoConflict {
                 return Err(String::from("conflicted"));
             }
@@ -144,8 +144,8 @@ fn check_source(cmd: &MvCommand, repo: &GitRepo, source: &str, destination: &str
 
         return Err(String::from("not under version control"));
     } else {
-        if let Some(_) = repo.index.entry_by_path(&source) {
-            if let Some(_) = repo.index.entry_by_path(&destination) {
+        if let Some(_) = repo.index.entry_by_path(&source_repo_path) {
+            if let Some(_) = repo.index.entry_by_path(&destination_repo_path) {
                 if !cmd.args.force {
                     return Err(String::from("destination exists"));
                 } 
@@ -169,8 +169,11 @@ impl GitCommand for MvCommand {
 
         let (sources, destination) = get_src_and_dst(&self.args.files)?;
 
+        let destination_repo_path = repo.path_to_git_repo_path(Path::new(destination))?;
+
         for source in sources {
-            match check_source(&self, &repo, &source, &destination) {
+            let source_repo_path = repo.path_to_git_repo_path(Path::new(source))?;
+            match check_source(&self, &repo, &source, &destination, &source_repo_path, &destination_repo_path) {
                 Ok(actions) => {
                     for action in actions {
                         if self.args.dry_run || self.args.verbose {

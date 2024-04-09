@@ -45,6 +45,15 @@ impl TestGitRepo {
         .unwrap();
     }
 
+    pub fn init_in_dir(&self, dir_name: &str) {
+        Command::cargo_bin("rust-git")
+        .unwrap()
+        .arg("init")
+        .arg(&dir_name)
+        .current_dir(self.temp_dir.path())
+        .unwrap();
+    }
+
     pub fn hash_object(&self, obj: &str) -> String {
         let cmd = 
             Command::cargo_bin("rust-git")

@@ -30,7 +30,7 @@ impl GitCommand for LsFilesCommand {
                     print!("{} {} {}\t", index_entry.mode, index_entry.name, index_entry.flags.stage)
                 }
 
-                println!("{}", index_entry.path_name);
+                println!("{}", index_entry.path_name.as_string());
 
                 if self.args.debug {
                     println!("  ctime: {}", index_entry.last_data_update);
