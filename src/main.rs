@@ -255,9 +255,7 @@ enum CliCommand {
 }
 
 fn load_repo_and_execute(cli: Cli) -> Result<(), RustGitError> {
-    // TODO: repo path should be determined based on args (git_dir, work_tree, etc)
-    let repo_path = Path::new(".");
-    let repo = GitRepo::new(repo_path)?;
+    let repo = GitRepo::new(&cli.git_dir)?;
 
     let command = from_cli(cli)?;
     command.execute(repo)
@@ -286,7 +284,6 @@ mod tests {
         assert_eq!(parse_config_override("test="), Ok((String::from("test"), String::from(""))));
         assert_eq!(parse_config_override("test"), Ok((String::from("test"), String::from("true"))));
     }
-
 
     #[test]
     fn test_parse_config_env()

@@ -126,6 +126,6 @@ mod integration_tests {
         .write_stdin("test")
         .assert()
         .failure()
-        .stderr(format!("not a git repository (or any of the parent directories): \"./.git\""));
+        .stderr(format!("not a git repository (or any of the parent directories): {:?}", test_git_repo.temp_dir.path()));
     }
  }
