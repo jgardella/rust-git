@@ -13,6 +13,7 @@ mod hash_object;
 mod init;
 mod ls_files;
 mod mv;
+mod restore;
 mod rm;
 
 use std::{path::{Path, PathBuf}, process::ExitCode};
@@ -28,6 +29,7 @@ use init::cli::InitArgs;
 use ls_files::cli::LsFilesArgs;
 use mv::cli::MvArgs;
 use repo::GitRepo;
+use restore::cli::RestoreArgs;
 use rm::cli::RmArgs;
 
 fn parse_config_override(s: &str) -> Result<(String,String), String> {
@@ -249,6 +251,7 @@ enum CliCommand {
     LsFiles(LsFilesArgs),
     Rm(RmArgs),
     Mv(MvArgs),
+    Restore(RestoreArgs),
 }
 
 fn load_repo_and_execute(cli: Cli) -> Result<(), RustGitError> {

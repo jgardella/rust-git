@@ -1,4 +1,17 @@
-use crate::{add::command::AddCommand, cat_file::command::CatFileCommand, error::RustGitError, hash_object::command::HashObjectCommand, init::command::InitCommand, ls_files::command::LsFilesCommand, mv::command::MvCommand, repo::RepoState, rm::command::RmCommand, Cli, CliCommand};
+use crate::{
+    Cli, 
+    CliCommand,
+    repo::RepoState, 
+    error::RustGitError, 
+    add::command::AddCommand, 
+    cat_file::command::CatFileCommand, 
+    hash_object::command::HashObjectCommand, 
+    init::command::InitCommand, 
+    ls_files::command::LsFilesCommand, 
+    mv::command::MvCommand, 
+    restore::command::RestoreCommand, 
+    rm::command::RmCommand, 
+};
 
 pub(crate) trait GitCommand {
     fn execute(&self, repo_state: RepoState) -> Result<(), RustGitError>;
@@ -25,6 +38,8 @@ pub(crate) fn from_cli(value: Cli) -> Result<Box<dyn GitCommand>, RustGitError> 
             Ok(Box::new(RmCommand::new(args))),
         CliCommand::Mv(args) => 
             Ok(Box::new(MvCommand::new(args))),
+        CliCommand::Restore(args) => 
+            Ok(Box::new(RestoreCommand::new(args))),
 
     }
 }
