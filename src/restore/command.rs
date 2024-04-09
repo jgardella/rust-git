@@ -1,7 +1,7 @@
 
-use std::{fs, path::{PathBuf, MAIN_SEPARATOR_STR}};
+use std::fs;
 
-use crate::{command::GitCommand, index::GitIndexStageFlag, repo::{GitRepo, RepoState}, RustGitError};
+use crate::{command::GitCommand, repo::RepoState, RustGitError};
 
 use super::cli::RestoreArgs;
 
@@ -20,7 +20,25 @@ impl RestoreCommand {
 impl GitCommand for RestoreCommand {
     fn execute(&self, repo_state: RepoState) -> Result<(), RustGitError>
     {
-        let mut repo = repo_state.try_get()?;
+        let repo = repo_state.try_get()?;
+
+        for file in self.args.files.iter() {
+            println!("restoring {file}");
+
+            let index_entries = repo.index.entry_range_by_path(&file);
+
+            for index_entry in index_entries {
+                let obj = repo.read_object(&index_entry.name)?;
+
+                match obj {
+                    Some(obj) => {
+                        fs::write(&index_entry.path_name, obj.content)?;
+                        println!("restored {}", index_entry.path_name);
+                    },
+                    None => println!("failed to restore {}", index_entry.path_name),
+                }
+            }
+        }
 
         Ok(())
     }
