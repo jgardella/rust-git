@@ -24,3 +24,5 @@ There is likely a lot of overlap between the `add` porcelain command and the `ha
 I thought `update-index` is a simpler version of `add`, but actually it's more of a super-powered version. So I will just implement a basic version of `add` for now.
 
 With the index implemented for the `add` command, implementing `rm`, `mv`, and `restore` should be quite straightforward, just making changes to/using that index.
+
+For now, I'll just implement `restore` with very basic functionality, to restore files in the working directory from the index. I will add further functionality once commits and branches are implemented.
