@@ -43,6 +43,13 @@ impl GitRepoPath {
     pub fn as_string(&self) -> String {
         String::from(self.as_path_buf().to_str().unwrap())
     }
+
+    /// Creates a new GitRepoPath which represents the current repo path moved into
+    /// the provided destination.
+    pub fn as_moved_file(&self, destination: &GitRepoPath) -> GitRepoPath {
+        let src_file_name = self.0.file_name().unwrap();
+        GitRepoPath(destination.0.join(&src_file_name))
+    }
 }
 
 impl Ord for GitRepoPath {
@@ -67,7 +74,7 @@ impl Eq for GitRepoPath { }
 
 impl Display for GitRepoPath {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.as_string())
+        write!(f, "\"{}\"", self.as_string())
     }
 }
 
@@ -228,14 +235,34 @@ impl GitRepo {
         Err(RustGitError::new("Unsupported file type"))
     }
 
-    /// Write file from root of repo.
-    pub(crate) fn write_file(&self, path: &GitRepoPath, contents: impl AsRef<[u8]>) -> Result<(), RustGitError> {
-        Ok(fs::write(self.root_dir.join(path.as_string()), contents)?)
+    /// Converts path to absolute path within this repo.
+    fn path_in_repo(&self, path: &GitRepoPath) -> PathBuf {
+        self.root_dir.join(path.as_string())
     }
 
-    /// Remove file from root of repo.
+    /// Write file relative to root of repo.
+    pub(crate) fn write_file(&self, path: &GitRepoPath, contents: impl AsRef<[u8]>) -> Result<(), RustGitError> {
+        let path_in_repo = self.path_in_repo(path);
+        Ok(fs::write(path_in_repo, contents)?)
+    }
+
+    /// Remove file relative to root of repo.
     pub(crate) fn remove_file(&self, path: &GitRepoPath) -> Result<(), RustGitError> {
-        Ok(fs::remove_file(self.root_dir.join(path.as_string()))?)
+        let path_in_repo = self.path_in_repo(path);
+        Ok(fs::remove_file(path_in_repo)?)
+    }
+
+    /// Rename file relative to root of repo.
+    pub(crate) fn rename_file(&self, old_path: &GitRepoPath, new_path: &GitRepoPath) -> Result<(), RustGitError> {
+        let old_path_in_repo = self.path_in_repo(old_path);
+        let new_path_in_repo = self.path_in_repo(new_path);
+        Ok(fs::rename(old_path_in_repo, new_path_in_repo)?)
+    }
+
+    /// Look up symlink metadata relative to root of repo.
+    pub(crate) fn symlink_metadata(&self, path: &GitRepoPath) -> Result<Metadata, RustGitError> {
+        let path_in_repo = self.path_in_repo(path);
+        Ok(fs::symlink_metadata(path_in_repo)?)
     }
 
     pub(crate) fn index(&mut self, obj_type: GitObjectType, content: String, write: bool) -> Result<GitObjectId, RustGitError> {
