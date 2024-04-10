@@ -32,7 +32,7 @@ impl RepoState {
 
 /// Represents a path which is relative to the root of the git repository.
 #[derive(Clone, Debug)]
-pub(crate) struct GitRepoPath(pub(crate) PathBuf); // TODO: creation of GitRepoPath should only be done in repo
+pub(crate) struct GitRepoPath(PathBuf);
 
 impl GitRepoPath {
     pub fn as_path_buf(&self) -> PathBuf {
@@ -49,6 +49,11 @@ impl GitRepoPath {
     pub fn as_moved_file(&self, destination: &GitRepoPath) -> GitRepoPath {
         let src_file_name = self.0.file_name().unwrap();
         GitRepoPath(destination.0.join(&src_file_name))
+    }
+
+    pub fn deserialize(bytes: &[u8]) -> Result<GitRepoPath, RustGitError> {
+        let path_name = String::from_utf8(bytes.to_vec())?;
+        Ok(GitRepoPath(PathBuf::from(path_name)))
     }
 }
 
