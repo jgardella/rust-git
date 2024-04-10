@@ -302,7 +302,7 @@ impl GitIndexEntry {
 
         }?;
 
-        let path_name = String::from_utf8(path_name_bytes.to_vec())?;
+        let path_name = GitRepoPath::deserialize(path_name_bytes)?;
 
         let processed_bytes = 62 + path_name_bytes.len();
         let padding = {
@@ -327,7 +327,7 @@ impl GitIndexEntry {
             file_size,
             name,
             flags,
-            path_name: GitRepoPath(PathBuf::from(path_name)),
+            path_name,
         }, padded_processed_bytes))
     }
 
@@ -586,8 +586,6 @@ impl GitIndex {
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
-
     use crate::{object::GitObjectId, repo::GitRepoPath};
 
     use super::{GitIndex, GitIndexEntry, GitIndexFlags, GitIndexMode, GitIndexStageFlag, GitIndexTimestamp};
@@ -616,16 +614,16 @@ mod tests {
                 stage: GitIndexStageFlag::RegularFileNoConflict,
                 name_length: 8,
             }, 
-            path_name: GitRepoPath(PathBuf::from("test.txt"))
+            path_name: GitRepoPath::deserialize(b"test.txt").unwrap()
         }
     }
 
     #[test]
     fn should_add_entries_in_sorted_order() {
         let mut index = GitIndex::new();
-        let path1 = GitRepoPath(PathBuf::from("test.txt"));
-        let path2 = GitRepoPath(PathBuf::from("fest.txt"));
-        let path3 = GitRepoPath(PathBuf::from("best.txt"));
+        let path1 = GitRepoPath::deserialize(b"test.txt").unwrap();
+        let path2 = GitRepoPath::deserialize(b"fest.txt").unwrap();
+        let path3 = GitRepoPath::deserialize(b"best.txt").unwrap();
         let entry1 = GitIndexEntry { path_name: path1, ..get_test_index_entry() };
         let entry2 = GitIndexEntry { path_name: path2, ..get_test_index_entry() };
         let entry3 = GitIndexEntry { path_name: path3, ..get_test_index_entry() };
@@ -634,9 +632,9 @@ mod tests {
         index.add(entry2);
         index.add(entry3);
 
-        assert_eq!(index.entries[0].path_name, GitRepoPath(PathBuf::from("best.txt")));
-        assert_eq!(index.entries[1].path_name, GitRepoPath(PathBuf::from("fest.txt")));
-        assert_eq!(index.entries[2].path_name, GitRepoPath(PathBuf::from("test.txt")));
+        assert_eq!(index.entries[0].path_name, GitRepoPath::deserialize(b"best.txt").unwrap());
+        assert_eq!(index.entries[1].path_name, GitRepoPath::deserialize(b"fest.txt").unwrap());
+        assert_eq!(index.entries[2].path_name, GitRepoPath::deserialize(b"test.txt").unwrap());
     }
 
     mod serialization {
@@ -652,8 +650,6 @@ mod tests {
         }
 
         mod git_index {
-            use std::path::PathBuf;
-
             use crate::{error::RustGitError, index::{GitIndex, GitIndexEntry, GitIndexFlags, GitIndexHeader, GitIndexMode, GitIndexStageFlag, GitIndexTimestamp, GitIndexVersion}, object::GitObjectId, repo::GitRepoPath};
 
             #[test]
@@ -686,7 +682,6 @@ mod tests {
                             last_data_update: GitIndexTimestamp {
                                 seconds: 100,
                                 nanoseconds: 200,
-
                             },
                             dev: 1,
                             ino: 2, 
@@ -701,7 +696,7 @@ mod tests {
                                 stage: GitIndexStageFlag::RegularFileNoConflict,
                                 name_length: 8,
                             }, 
-                            path_name: GitRepoPath(PathBuf::from("test.txt"))
+                            path_name: GitRepoPath::deserialize(b"test.txt").unwrap()
                         },
                         GitIndexEntry { 
                             last_metadata_update: GitIndexTimestamp {
@@ -726,7 +721,7 @@ mod tests {
                                 stage: GitIndexStageFlag::RegularFileNoConflict,
                                 name_length: 9,
                             }, 
-                            path_name: GitRepoPath(PathBuf::from("test2.txt"))
+                            path_name: GitRepoPath::deserialize(b"test2.txt").unwrap()
                         },
 
                     ],
@@ -759,7 +754,7 @@ mod tests {
         }
 
         mod git_index_entry {
-            use std::{iter, path::PathBuf};
+            use std::iter;
 
             use crate::{index::{tests::get_test_index_entry, GitIndexEntry, GitIndexFlags}, repo::GitRepoPath};
 
@@ -775,7 +770,7 @@ mod tests {
                 let test_index_entry = get_test_index_entry();
                 let git_index_entry = GitIndexEntry { 
                     flags: GitIndexFlags { name_length: 0xFFF, ..test_index_entry.flags },
-                    path_name: GitRepoPath(PathBuf::from(iter::repeat('A').take(0xFFF1).collect::<String>())),
+                    path_name: GitRepoPath::deserialize(iter::repeat('A').take(0xFFF1).collect::<String>().as_bytes()).unwrap(),
                     ..test_index_entry
                 };
                 let result = GitIndexEntry::deserialize(&GitIndexEntry::serialize(&git_index_entry));

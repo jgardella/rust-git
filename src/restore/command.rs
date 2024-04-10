@@ -1,5 +1,5 @@
 
-use std::{fs, path::Path};
+use std::path::Path;
 
 use crate::{command::GitCommand, repo::RepoState, RustGitError};
 
