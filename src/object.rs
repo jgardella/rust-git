@@ -29,19 +29,21 @@ impl Display for GitObjectType {
 
 impl FromStr for GitObjectType {
     type Err = RustGitError;
-    
+
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "commit" => Ok(GitObjectType::Commit),
             "tree" => Ok(GitObjectType::Tree),
             "blob" => Ok(GitObjectType::Blob),
             "tag" => Ok(GitObjectType::Tag),
-            _ => Err(RustGitError::new(format!("'{s}' is not a valid object type")))
+            _ => Err(RustGitError::new(format!(
+                "'{s}' is not a valid object type"
+            ))),
         }
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub(crate) struct GitObjectId(String);
 
 impl GitObjectId {
@@ -62,7 +64,6 @@ impl GitObjectId {
         let s = hex::encode(bytes);
         Ok(GitObjectId(s))
     }
-
 }
 
 impl Display for GitObjectId {
@@ -97,7 +98,6 @@ impl Display for GitObjectHeader {
 
         write!(f, "{}", header)
     }
-
 }
 
 impl FromStr for GitObjectHeader {
@@ -107,12 +107,11 @@ impl FromStr for GitObjectHeader {
         if let Some((obj_type, size)) = s.split_once(' ') {
             let obj_type = obj_type.parse::<GitObjectType>()?;
             let size = size.parse::<usize>()?;
-            Ok(GitObjectHeader {
-                obj_type,
-                size,
-            })
+            Ok(GitObjectHeader { obj_type, size })
         } else {
-            Err(RustGitError::new(String::from("Missing space in object header")))
+            Err(RustGitError::new(String::from(
+                "Missing space in object header",
+            )))
         }
     }
 }
@@ -145,7 +144,10 @@ impl FromStr for GitObjectContents {
             let content_len = content.len();
 
             if header.size != content_len {
-                return Err(RustGitError::new(format!("Header size {} didn't match content length {}", header.size, content_len)));
+                return Err(RustGitError::new(format!(
+                    "Header size {} didn't match content length {}",
+                    header.size, content_len
+                )));
             }
 
             Ok(GitObjectContents {
@@ -153,37 +155,46 @@ impl FromStr for GitObjectContents {
                 content: content.to_string(),
             })
         } else {
-            Err(RustGitError::new(String::from("Missing '\\0' in object file")))
+            Err(RustGitError::new(String::from(
+                "Missing '\\0' in object file",
+            )))
         }
     }
 }
 
 impl GitObject {
-    fn get_object_id(header: &GitObjectHeader, content: &str, hasher: &mut Box<dyn Hasher>) -> GitObjectId {
+    fn get_object_id(
+        header: &GitObjectHeader,
+        content: &str,
+        hasher: &mut Box<dyn Hasher>,
+    ) -> GitObjectId {
         hasher.update_fn(&header.to_string());
         hasher.update_fn(&content);
         hasher.final_oid_fn()
     }
 
-    pub(crate) fn new(obj_type: GitObjectType, content: String, hasher: &mut Box<dyn Hasher>) -> Result<GitObject, RustGitError> {
-        let header = GitObjectHeader { obj_type, size: content.len() };
+    pub(crate) fn new(
+        obj_type: GitObjectType,
+        content: String,
+        hasher: &mut Box<dyn Hasher>,
+    ) -> Result<GitObject, RustGitError> {
+        let header = GitObjectHeader {
+            obj_type,
+            size: content.len(),
+        };
         let header_string = header.to_string();
         let header_len = header_string.len();
 
         if header_len > MAX_HEADER_LEN {
-            return Err(RustGitError::new(format!("header of size {header_len} exceeded max size {MAX_HEADER_LEN}")));
+            return Err(RustGitError::new(format!(
+                "header of size {header_len} exceeded max size {MAX_HEADER_LEN}"
+            )));
         }
 
         let id = Self::get_object_id(&header, &content, hasher);
-        let content = GitObjectContents {
-            header,
-            content,
-        };
+        let content = GitObjectContents { header, content };
 
-        Ok(GitObject {
-            id,
-            content,
-        })
+        Ok(GitObject { id, content })
     }
 }
 
@@ -193,8 +204,7 @@ mod tests {
         use super::super::*;
 
         #[test]
-        fn should_parse_valid_git_object_type()
-        {
+        fn should_parse_valid_git_object_type() {
             assert_eq!("blob".parse(), Ok(GitObjectType::Blob));
             assert_eq!("commit".parse(), Ok(GitObjectType::Commit));
             assert_eq!("tree".parse(), Ok(GitObjectType::Tree));
@@ -202,10 +212,15 @@ mod tests {
         }
 
         #[test]
-        fn should_fail_to_parse_invalid_git_object_type()
-        {
-            assert_eq!("".parse::<GitObjectType>(), Err(RustGitError::new("'' is not a valid object type")));
-            assert_eq!("invalid".parse::<GitObjectType>(), Err(RustGitError::new("'invalid' is not a valid object type")));
+        fn should_fail_to_parse_invalid_git_object_type() {
+            assert_eq!(
+                "".parse::<GitObjectType>(),
+                Err(RustGitError::new("'' is not a valid object type"))
+            );
+            assert_eq!(
+                "invalid".parse::<GitObjectType>(),
+                Err(RustGitError::new("'invalid' is not a valid object type"))
+            );
         }
     }
 
@@ -213,20 +228,42 @@ mod tests {
         use super::super::*;
 
         #[test]
-        fn should_parse_valid_git_object_header()
-        {
-            assert_eq!("blob 20".parse(), Ok(GitObjectHeader { obj_type: GitObjectType::Blob, size: 20 }));
+        fn should_parse_valid_git_object_header() {
+            assert_eq!(
+                "blob 20".parse(),
+                Ok(GitObjectHeader {
+                    obj_type: GitObjectType::Blob,
+                    size: 20
+                })
+            );
         }
 
         #[test]
-        fn should_fail_to_parse_invalid_git_object_header()
-        {
-            assert_eq!("blob not-a-number".parse::<GitObjectHeader>(), Err(RustGitError::new("ParseIntError { kind: InvalidDigit }")));
-            assert_eq!("invalid 20".parse::<GitObjectHeader>(), Err(RustGitError::new("'invalid' is not a valid object type")));
-            assert_eq!("blob20".parse::<GitObjectHeader>(), Err(RustGitError::new("Missing space in object header")));
-            assert_eq!("blob".parse::<GitObjectHeader>(), Err(RustGitError::new("Missing space in object header")));
-            assert_eq!("20".parse::<GitObjectHeader>(), Err(RustGitError::new("Missing space in object header")));
-            assert_eq!("".parse::<GitObjectHeader>(), Err(RustGitError::new("Missing space in object header")));
+        fn should_fail_to_parse_invalid_git_object_header() {
+            assert_eq!(
+                "blob not-a-number".parse::<GitObjectHeader>(),
+                Err(RustGitError::new("ParseIntError { kind: InvalidDigit }"))
+            );
+            assert_eq!(
+                "invalid 20".parse::<GitObjectHeader>(),
+                Err(RustGitError::new("'invalid' is not a valid object type"))
+            );
+            assert_eq!(
+                "blob20".parse::<GitObjectHeader>(),
+                Err(RustGitError::new("Missing space in object header"))
+            );
+            assert_eq!(
+                "blob".parse::<GitObjectHeader>(),
+                Err(RustGitError::new("Missing space in object header"))
+            );
+            assert_eq!(
+                "20".parse::<GitObjectHeader>(),
+                Err(RustGitError::new("Missing space in object header"))
+            );
+            assert_eq!(
+                "".parse::<GitObjectHeader>(),
+                Err(RustGitError::new("Missing space in object header"))
+            );
         }
     }
 
@@ -234,20 +271,35 @@ mod tests {
         use super::super::*;
 
         #[test]
-        fn should_parse_valid_git_object_contents()
-        {
-            assert_eq!("blob 4\0test".parse(), Ok(GitObjectContents {
-                header: GitObjectHeader { obj_type: GitObjectType::Blob, size: 4 },
-                content: String::from("test")
-            }));
+        fn should_parse_valid_git_object_contents() {
+            assert_eq!(
+                "blob 4\0test".parse(),
+                Ok(GitObjectContents {
+                    header: GitObjectHeader {
+                        obj_type: GitObjectType::Blob,
+                        size: 4
+                    },
+                    content: String::from("test")
+                })
+            );
         }
 
         #[test]
-        fn should_fail_to_parse_invalid_git_object_contents()
-        {
-            assert_eq!("blob 5\0test".parse::<GitObjectContents>(), Err(RustGitError::new("Header size 5 didn't match content length 4")));
-            assert_eq!("blob 4 test".parse::<GitObjectContents>(), Err(RustGitError::new("Missing '\\0' in object file")));
-            assert_eq!("".parse::<GitObjectContents>(), Err(RustGitError::new("Missing '\\0' in object file")));
+        fn should_fail_to_parse_invalid_git_object_contents() {
+            assert_eq!(
+                "blob 5\0test".parse::<GitObjectContents>(),
+                Err(RustGitError::new(
+                    "Header size 5 didn't match content length 4"
+                ))
+            );
+            assert_eq!(
+                "blob 4 test".parse::<GitObjectContents>(),
+                Err(RustGitError::new("Missing '\\0' in object file"))
+            );
+            assert_eq!(
+                "".parse::<GitObjectContents>(),
+                Err(RustGitError::new("Missing '\\0' in object file"))
+            );
         }
     }
 
@@ -257,18 +309,23 @@ mod tests {
         use super::super::*;
 
         #[test]
-        fn should_create_new_blob_object()
-        {
+        fn should_create_new_blob_object() {
             let mut hasher: Box<dyn Hasher> = Box::new(Sha1::new());
             let obj_result = GitObject::new(GitObjectType::Blob, String::from("test"), &mut hasher);
 
-            assert_eq!(obj_result, Ok(GitObject {
-                id: GitObjectId(String::from("30d74d258442c7c65512eafab474568dd706c430")),
-                content: GitObjectContents {
-                    header: GitObjectHeader { obj_type: GitObjectType::Blob, size: 4 },
-                    content: String::from("test")
-                },
-            }));
+            assert_eq!(
+                obj_result,
+                Ok(GitObject {
+                    id: GitObjectId(String::from("30d74d258442c7c65512eafab474568dd706c430")),
+                    content: GitObjectContents {
+                        header: GitObjectHeader {
+                            obj_type: GitObjectType::Blob,
+                            size: 4
+                        },
+                        content: String::from("test")
+                    },
+                })
+            );
         }
     }
 }

@@ -1,21 +1,25 @@
-/// All binary numbers are in network byte order.
-
-use std::{fmt::Display, fs::{self, File, Metadata}, io::Write, os::unix::fs::{MetadataExt, PermissionsExt}, path::{Path, PathBuf}};
-use sha1::{Digest, Sha1};
 use crate::{error::RustGitError, hash::Hasher, object::GitObjectId, repo::GitRepoPath};
+use sha1::{Digest, Sha1};
+/// All binary numbers are in network byte order.
+use std::{
+    fmt::Display,
+    fs::{self, File, Metadata},
+    io::Write,
+    os::unix::fs::{MetadataExt, PermissionsExt},
+    path::{Path, PathBuf},
+};
 
 const INDEX_HEADER_SIGNATURE: &[u8; 4] = b"DIRC";
 
 fn as_u32_be(array: &[u8; 4]) -> u32 {
-    ((array[0] as u32) << 24) +
-    ((array[1] as u32) << 16) +
-    ((array[2] as u32) <<  8) +
-    ((array[3] as u32) <<  0)
+    ((array[0] as u32) << 24)
+        + ((array[1] as u32) << 16)
+        + ((array[2] as u32) << 8)
+        + ((array[3] as u32) << 0)
 }
 
 fn as_u16_be(array: &[u8; 2]) -> u16 {
-    ((array[0] as u16) <<  8) +
-    ((array[1] as u16) <<  0)
+    ((array[0] as u16) << 8) + ((array[1] as u16) << 0)
 }
 
 const DEFAULT_INDEX_NAME: &str = "index";
@@ -29,7 +33,7 @@ pub(crate) enum GitIndexVersion {
 impl GitIndexVersion {
     pub(crate) fn serialize(index_version: &GitIndexVersion) -> [u8; 4] {
         match index_version {
-            GitIndexVersion::V2 => (2 as u32).to_be_bytes()
+            GitIndexVersion::V2 => (2 as u32).to_be_bytes(),
         }
     }
 
@@ -37,7 +41,9 @@ impl GitIndexVersion {
         let bytes: &[u8; 4] = bytes.try_into()?;
         match as_u32_be(bytes) {
             2 => Ok(GitIndexVersion::V2),
-            other => Err(RustGitError::new(format!("unsupported index version {other}")))
+            other => Err(RustGitError::new(format!(
+                "unsupported index version {other}"
+            ))),
         }
     }
 }
@@ -72,7 +78,7 @@ impl GitIndexHeader {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub(crate) struct GitIndexTimestamp {
     pub seconds: u32,
     pub nanoseconds: u32,
@@ -104,7 +110,7 @@ impl GitIndexTimestamp {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub(crate) enum GitIndexMode {
     RegularFile0755,
     RegularFile0644,
@@ -140,7 +146,9 @@ impl GitIndexMode {
             [0b00000000, 0b00000000, 0b10000001, 0b10100100] => Ok(GitIndexMode::RegularFile0644),
             [0b00000000, 0b00000000, 0b10100000, 0b00000000] => Ok(GitIndexMode::SymbolicLink),
             [0b00000000, 0b00000000, 0b11100000, 0b00000000] => Ok(GitIndexMode::GitLink),
-            other => Err(RustGitError::new(format!("invalid mode '{other:?}' in index entry")))
+            other => Err(RustGitError::new(format!(
+                "invalid mode '{other:?}' in index entry"
+            ))),
         }
     }
 }
@@ -166,13 +174,13 @@ impl Display for GitIndexStageFlag {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub(crate) struct GitIndexFlags {
     pub assume_valid: bool,
     pub extended: bool,
     pub stage: GitIndexStageFlag,
     pub name_length: u16,
-} 
+}
 
 impl GitIndexFlags {
     pub(crate) fn serialize(flags: &GitIndexFlags) -> [u8; 2] {
@@ -201,16 +209,15 @@ impl GitIndexFlags {
         let bytes: &[u8; 2] = bytes.try_into()?;
         let assume_valid = bytes[0] & 0b10000000 != 0;
         let extended = bytes[0] & 0b01000000 != 0;
-        let stage = 
-            if bytes[0] & 0b00110000 != 0 {
-                GitIndexStageFlag::Theirs
-            } else if bytes[0] & 0b00100000 != 0 {
-                GitIndexStageFlag::Ours
-            } else if bytes[0] & 0b00010000 != 0 {
-                GitIndexStageFlag::Base
-            } else {
-                GitIndexStageFlag::RegularFileNoConflict
-            };
+        let stage = if bytes[0] & 0b00110000 != 0 {
+            GitIndexStageFlag::Theirs
+        } else if bytes[0] & 0b00100000 != 0 {
+            GitIndexStageFlag::Ours
+        } else if bytes[0] & 0b00010000 != 0 {
+            GitIndexStageFlag::Base
+        } else {
+            GitIndexStageFlag::RegularFileNoConflict
+        };
         let name_length = as_u16_be(&[bytes[0] & 0b00001111, bytes[1]]);
 
         Ok(GitIndexFlags {
@@ -222,7 +229,7 @@ impl GitIndexFlags {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Eq)]
 pub(crate) struct GitIndexEntry {
     pub last_metadata_update: GitIndexTimestamp,
     pub last_data_update: GitIndexTimestamp,
@@ -291,15 +298,14 @@ impl GitIndexEntry {
 
         let path_name_bytes = {
             if flags.name_length < 0xFFF {
-                Ok(&bytes[62..(62+flags.name_length as usize)])
+                Ok(&bytes[62..(62 + flags.name_length as usize)])
             } else {
                 if let Some(null_index) = &bytes[62..].iter().position(|&b| b == b'\0') {
-                    Ok(&bytes[62..62+null_index])
+                    Ok(&bytes[62..62 + null_index])
                 } else {
                     Err(RustGitError::new("missing null byte for path name"))
                 }
             }
-
         }?;
 
         let path_name = GitRepoPath::deserialize(path_name_bytes)?;
@@ -316,43 +322,48 @@ impl GitIndexEntry {
 
         let padded_processed_bytes = processed_bytes + padding;
 
-        Ok((GitIndexEntry {
-            last_metadata_update,
-            last_data_update,
-            dev,
-            ino,
-            mode,
-            uid,
-            gid,
-            file_size,
-            name,
-            flags,
-            path_name,
-        }, padded_processed_bytes))
+        Ok((
+            GitIndexEntry {
+                last_metadata_update,
+                last_data_update,
+                dev,
+                ino,
+                mode,
+                uid,
+                gid,
+                file_size,
+                name,
+                flags,
+                path_name,
+            },
+            padded_processed_bytes,
+        ))
     }
 
-    pub(crate) fn new(path: &GitRepoPath, metadata: &Metadata, obj_id: GitObjectId) -> GitIndexEntry {
-        let mode =
-            if metadata.is_symlink() {
-                GitIndexMode::SymbolicLink
-            } else if metadata.is_dir() {
-                GitIndexMode::GitLink
+    pub(crate) fn new(
+        path: &GitRepoPath,
+        metadata: &Metadata,
+        obj_id: GitObjectId,
+    ) -> GitIndexEntry {
+        let mode = if metadata.is_symlink() {
+            GitIndexMode::SymbolicLink
+        } else if metadata.is_dir() {
+            GitIndexMode::GitLink
+        } else {
+            // If file is executable by owner, we set 755, otherwise 644.
+            if metadata.permissions().mode() & 0b01000000 != 0 {
+                GitIndexMode::RegularFile0755
             } else {
-                // If file is executable by owner, we set 755, otherwise 644.
-                if metadata.permissions().mode() & 0b01000000 != 0 {
-                    GitIndexMode::RegularFile0755
-                } else {
-                    GitIndexMode::RegularFile0644
-                }
-            };
-
+                GitIndexMode::RegularFile0644
+            }
+        };
 
         GitIndexEntry {
-            last_metadata_update:  GitIndexTimestamp {
+            last_metadata_update: GitIndexTimestamp {
                 seconds: metadata.ctime() as u32,
                 nanoseconds: metadata.ctime_nsec() as u32,
             },
-            last_data_update:  GitIndexTimestamp {
+            last_data_update: GitIndexTimestamp {
                 seconds: metadata.mtime() as u32,
                 nanoseconds: metadata.mtime_nsec() as u32,
             },
@@ -375,17 +386,15 @@ impl GitIndexEntry {
 
     /// Creates a copy of the provided index with a new name.
     pub(crate) fn with_updated_name(self, new_name: &GitRepoPath) -> GitIndexEntry {
-        GitIndexEntry { 
-            flags: GitIndexFlags { 
+        GitIndexEntry {
+            flags: GitIndexFlags {
                 name_length: new_name.as_string().len() as u16,
-                ..self.flags 
-            }, 
-            path_name: new_name.clone(), 
-            ..self 
+                ..self.flags
+            },
+            path_name: new_name.clone(),
+            ..self
         }
     }
-
-
 }
 
 // Index entries are sorted in ascending order on the name field,
@@ -414,8 +423,6 @@ impl PartialEq for GitIndexEntry {
     }
 }
 
-impl Eq for GitIndexEntry { }
-
 #[derive(Debug, PartialEq)]
 pub(crate) struct GitIndex {
     header: GitIndexHeader,
@@ -424,7 +431,7 @@ pub(crate) struct GitIndex {
 
 impl Default for GitIndex {
     fn default() -> Self {
-        Self { 
+        Self {
             header: GitIndexHeader {
                 version: GitIndexVersion::V2,
                 num_entries: 0,
@@ -462,29 +469,28 @@ impl GitIndex {
         let mut entries = Vec::new();
         let mut entry_start = 12;
         for _ in 0..header.num_entries {
-            let (entry , processed_bytes) = GitIndexEntry::deserialize(&bytes[entry_start..])?;
+            let (entry, processed_bytes) = GitIndexEntry::deserialize(&bytes[entry_start..])?;
             entries.push(entry);
             entry_start += processed_bytes;
         }
 
         // Skipping extensions for now.
 
-        // Checksum will always be last 20 bytes 
+        // Checksum will always be last 20 bytes
         // TODO: use separate SHA type
-        let checksum = GitObjectId::deserialize(&bytes[bytes.len()-20..])?;
+        let checksum = GitObjectId::deserialize(&bytes[bytes.len() - 20..])?;
         let mut hasher = Sha1::new();
-        hasher.update(&bytes[..bytes.len()-20]);
+        hasher.update(&bytes[..bytes.len() - 20]);
         let hash = hasher.finalize();
         let computed_checksum = GitObjectId::deserialize(&hash)?;
 
         if checksum != computed_checksum {
-            return Err(RustGitError::new(format!("Index checksum {checksum} doesn't match computed hash {computed_checksum}")));
+            return Err(RustGitError::new(format!(
+                "Index checksum {checksum} doesn't match computed hash {computed_checksum}"
+            )));
         }
 
-        Ok(GitIndex {
-            header,
-            entries,
-        })
+        Ok(GitIndex { header, entries })
     }
 
     /// Creates a new, empty index.
@@ -534,13 +540,16 @@ impl GitIndex {
     }
 
     /// Returns an iterator over the index entries.
-    pub(crate) fn iter_entries(&self) -> impl Iterator<Item=&GitIndexEntry> {
+    pub(crate) fn iter_entries(&self) -> impl Iterator<Item = &GitIndexEntry> {
         self.entries.iter()
     }
 
     /// Filters out entries for which the provided predicate returns false.
     /// Returns the path names of the removed entries.
-    pub(crate) fn filter_entries(&mut self, mut predicate: impl FnMut(&GitIndexEntry) -> bool) -> Vec<GitRepoPath> {
+    pub(crate) fn filter_entries(
+        &mut self,
+        mut predicate: impl FnMut(&GitIndexEntry) -> bool,
+    ) -> Vec<GitRepoPath> {
         let mut removed_paths = Vec::new();
         self.entries.retain(|entry| {
             let result = predicate(entry);
@@ -555,8 +564,9 @@ impl GitIndex {
 
     /// Tries to find an index entry with the provided path.
     pub(crate) fn entry_by_path(&self, path: &GitRepoPath) -> Option<(usize, &GitIndexEntry)> {
-        self.entries.binary_search_by_key(&path, |entry| &entry.path_name)
-        .map_or(None, |idx| Some((idx, &self.entries[idx])))
+        self.entries
+            .binary_search_by_key(&path, |entry| &entry.path_name)
+            .map_or(None, |idx| Some((idx, &self.entries[idx])))
     }
 
     /// Removes the index entry at the provided index.
@@ -567,7 +577,11 @@ impl GitIndex {
     }
 
     /// Updates the path name of the index entry with the provided current path name.
-    pub(crate) fn rename_entry_by_path(&mut self, current_name: &GitRepoPath, new_name: &GitRepoPath) {
+    pub(crate) fn rename_entry_by_path(
+        &mut self,
+        current_name: &GitRepoPath,
+        new_name: &GitRepoPath,
+    ) {
         if let Some((index, _)) = self.entry_by_path(&current_name) {
             let new_entry = self.remove_entry_at(index).with_updated_name(new_name);
             self.add(new_entry);
@@ -579,8 +593,13 @@ impl GitIndex {
     // Returns the range of entries which have the provided path prefix.
     pub(crate) fn entry_range_by_path(&self, prefix: &GitRepoPath) -> Vec<&GitIndexEntry> {
         self.iter_entries()
-        .filter(|entry| entry.path_name.as_path_buf().starts_with(prefix.as_string()))
-        .collect()
+            .filter(|entry| {
+                entry
+                    .path_name
+                    .as_path_buf()
+                    .starts_with(prefix.as_string())
+            })
+            .collect()
     }
 }
 
@@ -588,9 +607,11 @@ impl GitIndex {
 mod tests {
     use crate::{object::GitObjectId, repo::GitRepoPath};
 
-    use super::{GitIndex, GitIndexEntry, GitIndexFlags, GitIndexMode, GitIndexStageFlag, GitIndexTimestamp};
+    use super::{
+        GitIndex, GitIndexEntry, GitIndexFlags, GitIndexMode, GitIndexStageFlag, GitIndexTimestamp,
+    };
 
-    fn get_test_index_entry() -> GitIndexEntry { 
+    fn get_test_index_entry() -> GitIndexEntry {
         GitIndexEntry {
             last_metadata_update: GitIndexTimestamp {
                 seconds: 50,
@@ -599,42 +620,66 @@ mod tests {
             last_data_update: GitIndexTimestamp {
                 seconds: 100,
                 nanoseconds: 200,
-
             },
             dev: 1,
-            ino: 2, 
+            ino: 2,
             mode: GitIndexMode::RegularFile0644,
-            uid: 3, 
-            gid: 4, 
-            file_size: 5, 
+            uid: 3,
+            gid: 4,
+            file_size: 5,
             name: GitObjectId::new(String::from("9daeafb9864cf43055ae93beb0afd6c7d144bfa4")),
             flags: GitIndexFlags {
                 assume_valid: false,
                 extended: false,
                 stage: GitIndexStageFlag::RegularFileNoConflict,
                 name_length: 8,
-            }, 
-            path_name: GitRepoPath::deserialize(b"test.txt").unwrap()
+            },
+            path_name: GitRepoPath::deserialize(b"test.txt").unwrap(),
         }
     }
 
     #[test]
     fn should_add_entries_in_sorted_order() {
         let mut index = GitIndex::new();
-        let path1 = GitRepoPath::deserialize(b"test.txt").unwrap();
-        let path2 = GitRepoPath::deserialize(b"fest.txt").unwrap();
-        let path3 = GitRepoPath::deserialize(b"best.txt").unwrap();
-        let entry1 = GitIndexEntry { path_name: path1, ..get_test_index_entry() };
-        let entry2 = GitIndexEntry { path_name: path2, ..get_test_index_entry() };
-        let entry3 = GitIndexEntry { path_name: path3, ..get_test_index_entry() };
+        let paths = vec![
+            GitRepoPath::deserialize(b"test.txt").unwrap(),
+            GitRepoPath::deserialize(b"test_dir/test.txt").unwrap(),
+            GitRepoPath::deserialize(b"fest.txt").unwrap(),
+            GitRepoPath::deserialize(b"test_dir/another_dir/test.txt").unwrap(),
+            GitRepoPath::deserialize(b"best.txt").unwrap(),
+            GitRepoPath::deserialize(b"test_dir/test2.txt").unwrap(),
+            GitRepoPath::deserialize(b"test_dir/another_dir/test2.txt").unwrap(),
+            GitRepoPath::deserialize(b"test_dir/another_dir/test3.txt").unwrap(),
+            GitRepoPath::deserialize(b"test_dir/test3.txt").unwrap(),
+        ];
 
-        index.add(entry1);
-        index.add(entry2);
-        index.add(entry3);
+        for path in paths.iter() {
+            index.add(GitIndexEntry {
+                path_name: path.clone(),
+                ..get_test_index_entry()
+            });
+        }
 
-        assert_eq!(index.entries[0].path_name, GitRepoPath::deserialize(b"best.txt").unwrap());
-        assert_eq!(index.entries[1].path_name, GitRepoPath::deserialize(b"fest.txt").unwrap());
-        assert_eq!(index.entries[2].path_name, GitRepoPath::deserialize(b"test.txt").unwrap());
+        let index_entry_paths = index
+            .entries
+            .iter()
+            .map(|entry| entry.path_name.as_string())
+            .collect::<Vec<String>>();
+
+        assert_eq!(
+            index_entry_paths,
+            vec![
+                "best.txt",
+                "fest.txt",
+                "test.txt",
+                "test_dir/another_dir/test.txt",
+                "test_dir/another_dir/test2.txt",
+                "test_dir/another_dir/test3.txt",
+                "test_dir/test.txt",
+                "test_dir/test2.txt",
+                "test_dir/test3.txt",
+            ]
+        );
     }
 
     mod serialization {
@@ -642,7 +687,10 @@ mod tests {
 
         use super::super::*;
 
-        fn assert_incorrect_bytes_err<T>(expected_bytes: usize, deser_f: impl Fn(&[u8]) -> Result<T, RustGitError>) {
+        fn assert_incorrect_bytes_err<T>(
+            expected_bytes: usize,
+            deser_f: impl Fn(&[u8]) -> Result<T, RustGitError>,
+        ) {
             let too_many_bytes: Vec<u8> = iter::repeat(b'0').take(expected_bytes + 1).collect();
             let too_few_bytes: Vec<u8> = iter::repeat(b'0').take(expected_bytes - 1).collect();
             assert!(deser_f(&too_few_bytes).is_err());
@@ -650,7 +698,15 @@ mod tests {
         }
 
         mod git_index {
-            use crate::{error::RustGitError, index::{GitIndex, GitIndexEntry, GitIndexFlags, GitIndexHeader, GitIndexMode, GitIndexStageFlag, GitIndexTimestamp, GitIndexVersion}, object::GitObjectId, repo::GitRepoPath};
+            use crate::{
+                error::RustGitError,
+                index::{
+                    GitIndex, GitIndexEntry, GitIndexFlags, GitIndexHeader, GitIndexMode,
+                    GitIndexStageFlag, GitIndexTimestamp, GitIndexVersion,
+                },
+                object::GitObjectId,
+                repo::GitRepoPath,
+            };
 
             #[test]
             fn should_roundtrip_empty() {
@@ -674,7 +730,7 @@ mod tests {
                         num_entries: 2,
                     },
                     entries: vec![
-                        GitIndexEntry { 
+                        GitIndexEntry {
                             last_metadata_update: GitIndexTimestamp {
                                 seconds: 50,
                                 nanoseconds: 150,
@@ -684,21 +740,23 @@ mod tests {
                                 nanoseconds: 200,
                             },
                             dev: 1,
-                            ino: 2, 
+                            ino: 2,
                             mode: GitIndexMode::RegularFile0644,
-                            uid: 3, 
-                            gid: 4, 
-                            file_size: 5, 
-                            name: GitObjectId::new(String::from("9daeafb9864cf43055ae93beb0afd6c7d144bfa4")),
+                            uid: 3,
+                            gid: 4,
+                            file_size: 5,
+                            name: GitObjectId::new(String::from(
+                                "9daeafb9864cf43055ae93beb0afd6c7d144bfa4",
+                            )),
                             flags: GitIndexFlags {
                                 assume_valid: false,
                                 extended: false,
                                 stage: GitIndexStageFlag::RegularFileNoConflict,
                                 name_length: 8,
-                            }, 
-                            path_name: GitRepoPath::deserialize(b"test.txt").unwrap()
+                            },
+                            path_name: GitRepoPath::deserialize(b"test.txt").unwrap(),
                         },
-                        GitIndexEntry { 
+                        GitIndexEntry {
                             last_metadata_update: GitIndexTimestamp {
                                 seconds: 50,
                                 nanoseconds: 150,
@@ -706,24 +764,24 @@ mod tests {
                             last_data_update: GitIndexTimestamp {
                                 seconds: 100,
                                 nanoseconds: 200,
-
                             },
                             dev: 1,
-                            ino: 2, 
+                            ino: 2,
                             mode: GitIndexMode::RegularFile0644,
-                            uid: 3, 
-                            gid: 4, 
-                            file_size: 5, 
-                            name: GitObjectId::new(String::from("180cf8328022becee9aaa2577a8f84ea2b9f3827")),
+                            uid: 3,
+                            gid: 4,
+                            file_size: 5,
+                            name: GitObjectId::new(String::from(
+                                "180cf8328022becee9aaa2577a8f84ea2b9f3827",
+                            )),
                             flags: GitIndexFlags {
                                 assume_valid: false,
                                 extended: false,
                                 stage: GitIndexStageFlag::RegularFileNoConflict,
                                 name_length: 9,
-                            }, 
-                            path_name: GitRepoPath::deserialize(b"test2.txt").unwrap()
+                            },
+                            path_name: GitRepoPath::deserialize(b"test2.txt").unwrap(),
                         },
-
                     ],
                 };
 
@@ -743,12 +801,12 @@ mod tests {
 
                 let mut serialized_bytes = GitIndex::serialize(&test_index);
                 let num_bytes = serialized_bytes.len();
-                let real_checksum = hex::encode(&serialized_bytes[num_bytes-20..]);
-                serialized_bytes[num_bytes-1] = 0;
-                let invalid_checksum = hex::encode(&serialized_bytes[num_bytes-20..]);
+                let real_checksum = hex::encode(&serialized_bytes[num_bytes - 20..]);
+                serialized_bytes[num_bytes - 1] = 0;
+                let invalid_checksum = hex::encode(&serialized_bytes[num_bytes - 20..]);
 
                 let result = GitIndex::deserialize(&serialized_bytes);
-                
+
                 assert_eq!(result, Err(RustGitError::new(format!("Index checksum {invalid_checksum} doesn't match computed hash {real_checksum}"))));
             }
         }
@@ -756,24 +814,38 @@ mod tests {
         mod git_index_entry {
             use std::iter;
 
-            use crate::{index::{tests::get_test_index_entry, GitIndexEntry, GitIndexFlags}, repo::GitRepoPath};
+            use crate::{
+                index::{tests::get_test_index_entry, GitIndexEntry, GitIndexFlags},
+                repo::GitRepoPath,
+            };
 
             #[test]
             fn should_roundtrip() {
                 let git_index_entry = get_test_index_entry();
-                let result = GitIndexEntry::deserialize(&GitIndexEntry::serialize(&git_index_entry));
+                let result =
+                    GitIndexEntry::deserialize(&GitIndexEntry::serialize(&git_index_entry));
                 assert_eq!(result, Ok((git_index_entry, 72)));
             }
 
             #[test]
             fn should_roundtrip_long_name() {
                 let test_index_entry = get_test_index_entry();
-                let git_index_entry = GitIndexEntry { 
-                    flags: GitIndexFlags { name_length: 0xFFF, ..test_index_entry.flags },
-                    path_name: GitRepoPath::deserialize(iter::repeat('A').take(0xFFF1).collect::<String>().as_bytes()).unwrap(),
+                let git_index_entry = GitIndexEntry {
+                    flags: GitIndexFlags {
+                        name_length: 0xFFF,
+                        ..test_index_entry.flags
+                    },
+                    path_name: GitRepoPath::deserialize(
+                        iter::repeat('A')
+                            .take(0xFFF1)
+                            .collect::<String>()
+                            .as_bytes(),
+                    )
+                    .unwrap(),
                     ..test_index_entry
                 };
-                let result = GitIndexEntry::deserialize(&GitIndexEntry::serialize(&git_index_entry));
+                let result =
+                    GitIndexEntry::deserialize(&GitIndexEntry::serialize(&git_index_entry));
                 assert_eq!(result, Ok((git_index_entry, 65584)));
             }
         }
@@ -790,7 +862,8 @@ mod tests {
                     name_length: 5,
                 };
 
-                let result = GitIndexFlags::deserialize(&GitIndexFlags::serialize(&git_index_flags));
+                let result =
+                    GitIndexFlags::deserialize(&GitIndexFlags::serialize(&git_index_flags));
                 assert_eq!(result, Ok(git_index_flags));
             }
 
@@ -807,10 +880,28 @@ mod tests {
 
             #[test]
             fn should_roundtrip() {
-                assert_eq!(GitIndexMode::deserialize(&GitIndexMode::serialize(&GitIndexMode::RegularFile0755)), Ok(GitIndexMode::RegularFile0755));
-                assert_eq!(GitIndexMode::deserialize(&GitIndexMode::serialize(&GitIndexMode::RegularFile0644)), Ok(GitIndexMode::RegularFile0644));
-                assert_eq!(GitIndexMode::deserialize(&GitIndexMode::serialize(&GitIndexMode::SymbolicLink)), Ok(GitIndexMode::SymbolicLink));
-                assert_eq!(GitIndexMode::deserialize(&GitIndexMode::serialize(&GitIndexMode::GitLink)), Ok(GitIndexMode::GitLink));
+                assert_eq!(
+                    GitIndexMode::deserialize(&GitIndexMode::serialize(
+                        &GitIndexMode::RegularFile0755
+                    )),
+                    Ok(GitIndexMode::RegularFile0755)
+                );
+                assert_eq!(
+                    GitIndexMode::deserialize(&GitIndexMode::serialize(
+                        &GitIndexMode::RegularFile0644
+                    )),
+                    Ok(GitIndexMode::RegularFile0644)
+                );
+                assert_eq!(
+                    GitIndexMode::deserialize(&GitIndexMode::serialize(
+                        &GitIndexMode::SymbolicLink
+                    )),
+                    Ok(GitIndexMode::SymbolicLink)
+                );
+                assert_eq!(
+                    GitIndexMode::deserialize(&GitIndexMode::serialize(&GitIndexMode::GitLink)),
+                    Ok(GitIndexMode::GitLink)
+                );
             }
 
             #[test]
@@ -822,9 +913,13 @@ mod tests {
             fn should_fail_for_invalid_mode() {
                 let bytes: &[u8] = &[0, 0, 0, 0];
                 let result = GitIndexMode::deserialize(&bytes);
-                assert_eq!(result, Err(RustGitError::new("invalid mode '[0, 0, 0, 0]' in index entry")));
+                assert_eq!(
+                    result,
+                    Err(RustGitError::new(
+                        "invalid mode '[0, 0, 0, 0]' in index entry"
+                    ))
+                );
             }
-
         }
 
         mod git_index_timestamp {
@@ -837,7 +932,9 @@ mod tests {
                     nanoseconds: 100,
                 };
 
-                let result = GitIndexTimestamp::deserialize(&GitIndexTimestamp::serialize(&git_index_timestamp));
+                let result = GitIndexTimestamp::deserialize(&GitIndexTimestamp::serialize(
+                    &git_index_timestamp,
+                ));
                 assert_eq!(result, Ok(git_index_timestamp));
             }
 
@@ -850,7 +947,7 @@ mod tests {
         mod git_index_header {
             use crate::error::RustGitError;
 
-            use super::{assert_incorrect_bytes_err, GitIndexVersion, GitIndexHeader};
+            use super::{assert_incorrect_bytes_err, GitIndexHeader, GitIndexVersion};
 
             #[test]
             fn should_roundtrip() {
@@ -859,7 +956,8 @@ mod tests {
                     num_entries: 2,
                 };
 
-                let result = GitIndexHeader::deserialize(&GitIndexHeader::serialize(&git_index_header));
+                let result =
+                    GitIndexHeader::deserialize(&GitIndexHeader::serialize(&git_index_header));
                 assert_eq!(result, Ok(git_index_header));
             }
 
@@ -872,7 +970,10 @@ mod tests {
             fn should_fail_for_missing_signature() {
                 let bytes: &[u8] = b"LIRC00000000"; // should be DIRC
                 let result = GitIndexHeader::deserialize(&bytes);
-                assert_eq!(result, Err(RustGitError::new("missing header signature in index file")));
+                assert_eq!(
+                    result,
+                    Err(RustGitError::new("missing header signature in index file"))
+                );
             }
         }
 
@@ -885,7 +986,8 @@ mod tests {
             fn should_roundtrip() {
                 let git_index_version = GitIndexVersion::V2;
 
-                let result = GitIndexVersion::deserialize(&GitIndexVersion::serialize(&git_index_version));
+                let result =
+                    GitIndexVersion::deserialize(&GitIndexVersion::serialize(&git_index_version));
                 assert_eq!(result, Ok(git_index_version));
             }
 
@@ -897,7 +999,10 @@ mod tests {
             #[test]
             fn should_fail_for_invalid_version() {
                 let result = GitIndexVersion::deserialize(&(3 as u32).to_be_bytes());
-                assert_eq!(result, Err(RustGitError::new("unsupported index version 3")));
+                assert_eq!(
+                    result,
+                    Err(RustGitError::new("unsupported index version 3"))
+                );
             }
         }
     }

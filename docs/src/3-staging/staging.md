@@ -4,6 +4,7 @@ Implement commands for working with the local staging area:
 - `rm`
 - `mv`
 - `restore`
+- `write-tree`
 
 Running `git help add`:
 ```
@@ -26,3 +27,5 @@ I thought `update-index` is a simpler version of `add`, but actually it's more o
 With the index implemented for the `add` command, implementing `rm`, `mv`, and `restore` should be quite straightforward, just making changes to/using that index.
 
 For now, I'll just implement `restore` with very basic functionality, to restore files in the working directory from the index. I will add further functionality once commits and branches are implemented.
+
+The `write-tree` command adds Git tree objects to the Git object store based on the current index. Efficient implementation relies on the Git index being maintained in special sorted order: https://stackoverflow.com/questions/72128688/how-git-write-tree-works-internally

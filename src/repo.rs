@@ -1,16 +1,17 @@
+use std::collections::HashMap;
 use std::fmt::Display;
-use std::{env, fs};
 use std::fs::{create_dir_all, Metadata};
 use std::path::{Path, PathBuf};
+use std::{env, fs};
 
-use crate::index::GitIndex;
+use crate::index::{GitIndex, GitIndexEntry};
 use crate::object::{GitObject, GitObjectContents, GitObjectId, GitObjectType};
 use crate::{config::GitConfig, error::RustGitError, hash::get_hasher};
 
+use flate2::read::ZlibDecoder;
+use flate2::{write::ZlibEncoder, Compression};
 use std::fs::File;
 use std::io::{Read, Write};
-use flate2::read::ZlibDecoder;
-use flate2::{Compression, write::ZlibEncoder};
 
 const DEFAULT_GIT_DIR_NAME: &str = ".git";
 
@@ -24,14 +25,18 @@ impl RepoState {
     pub(crate) fn try_get(self) -> Result<GitRepo, RustGitError> {
         match self {
             RepoState::Repo(repo) => Ok(repo),
-            RepoState::NoRepoExplicit(git_dir) => Err(RustGitError::new(format!("couldn't resolve provided git repository: {git_dir:?}"))),
-            RepoState::NoRepoDiscovered(working_dir) => Err(RustGitError::new(format!("not a git repository (or any of the parent directories): {working_dir:?}"))),
+            RepoState::NoRepoExplicit(git_dir) => Err(RustGitError::new(format!(
+                "couldn't resolve provided git repository: {git_dir:?}"
+            ))),
+            RepoState::NoRepoDiscovered(working_dir) => Err(RustGitError::new(format!(
+                "not a git repository (or any of the parent directories): {working_dir:?}"
+            ))),
         }
     }
 }
 
 /// Represents a path which is relative to the root of the git repository.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq)]
 pub(crate) struct GitRepoPath(PathBuf);
 
 impl GitRepoPath {
@@ -75,8 +80,6 @@ impl PartialEq for GitRepoPath {
     }
 }
 
-impl Eq for GitRepoPath { }
-
 impl Display for GitRepoPath {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "\"{}\"", self.as_string())
@@ -119,9 +122,9 @@ impl GitRepo {
                         // Path is outside repo.
                         return None;
                     }
-                },
+                }
                 std::path::Component::CurDir => (),
-                _ => normalized_path.push(component)
+                _ => normalized_path.push(component),
             }
         }
 
@@ -134,7 +137,9 @@ impl GitRepo {
         let git_repo_path = self.working_dir.join(path);
         match self.normalize_path(&git_repo_path) {
             Some(normalized_path) => Ok(GitRepoPath(normalized_path)),
-            None => Err(RustGitError::new(format!("path {path:?} is outside of repo")))
+            None => Err(RustGitError::new(format!(
+                "path {path:?} is outside of repo"
+            ))),
         }
     }
 
@@ -143,21 +148,18 @@ impl GitRepo {
     /// Otherwise, we will search for the git directory from the current working directory.
     pub(crate) fn new(git_dir: &Option<PathBuf>) -> Result<RepoState, RustGitError> {
         let current_dir = env::current_dir()?;
-        let resolved_git_dir = 
-            match git_dir {
-                Some(git_dir) => {
-                    let git_dir = git_dir.to_path_buf();
-                    if !git_dir.exists() {
-                        return Ok(RepoState::NoRepoExplicit(git_dir));
-                    }
-                    git_dir
-                },
-                None => {
-                    match Self::discover_git_dir(&current_dir) {
-                        Some(git_dir) => git_dir,
-                        None => return Ok(RepoState::NoRepoDiscovered(current_dir))
-                    }
+        let resolved_git_dir = match git_dir {
+            Some(git_dir) => {
+                let git_dir = git_dir.to_path_buf();
+                if !git_dir.exists() {
+                    return Ok(RepoState::NoRepoExplicit(git_dir));
                 }
+                git_dir
+            }
+            None => match Self::discover_git_dir(&current_dir) {
+                Some(git_dir) => git_dir,
+                None => return Ok(RepoState::NoRepoDiscovered(current_dir)),
+            },
         };
 
         let config = GitConfig::new(&resolved_git_dir)?;
@@ -180,14 +182,11 @@ impl GitRepo {
 
     pub(crate) fn loose_object_path(&self, obj_id: &GitObjectId) -> (PathBuf, PathBuf) {
         // C Git additional logic omitted:
-        // https://github.com/git/git/blob/11c821f2f2a31e70fb5cc449f9a29401c333aad2/object-file.c#L436-L445 
+        // https://github.com/git/git/blob/11c821f2f2a31e70fb5cc449f9a29401c333aad2/object-file.c#L436-L445
 
         let (folder_name, file_name) = obj_id.folder_and_file_name();
 
-        let obj_folder =
-            self.git_dir
-                .join("objects")
-                .join(folder_name);
+        let obj_folder = self.git_dir.join("objects").join(folder_name);
 
         (obj_folder, Path::new(file_name).to_path_buf())
     }
@@ -207,7 +206,10 @@ impl GitRepo {
         Ok(())
     }
 
-    pub(crate) fn read_object(&self, obj_id: &GitObjectId) -> Result<Option<GitObjectContents>, RustGitError> {
+    pub(crate) fn read_object(
+        &self,
+        obj_id: &GitObjectId,
+    ) -> Result<Option<GitObjectContents>, RustGitError> {
         let (obj_folder, obj_file_name) = self.loose_object_path(&obj_id);
         let obj_file_path = obj_folder.join(obj_file_name);
 
@@ -225,7 +227,11 @@ impl GitRepo {
         Ok(Some(obj))
     }
 
-    pub(crate) fn index_path(&mut self, path: &Path, metadata: &Metadata) -> Result<GitObjectId, RustGitError> {
+    pub(crate) fn index_path(
+        &mut self,
+        path: &Path,
+        metadata: &Metadata,
+    ) -> Result<GitObjectId, RustGitError> {
         if metadata.is_file() {
             let mut file = File::open(path)?;
             let mut content = String::new();
@@ -246,7 +252,11 @@ impl GitRepo {
     }
 
     /// Write file relative to root of repo.
-    pub(crate) fn write_file(&self, path: &GitRepoPath, contents: impl AsRef<[u8]>) -> Result<(), RustGitError> {
+    pub(crate) fn write_file(
+        &self,
+        path: &GitRepoPath,
+        contents: impl AsRef<[u8]>,
+    ) -> Result<(), RustGitError> {
         let path_in_repo = self.path_in_repo(path);
         Ok(fs::write(path_in_repo, contents)?)
     }
@@ -258,7 +268,11 @@ impl GitRepo {
     }
 
     /// Rename file relative to root of repo.
-    pub(crate) fn rename_file(&self, old_path: &GitRepoPath, new_path: &GitRepoPath) -> Result<(), RustGitError> {
+    pub(crate) fn rename_file(
+        &self,
+        old_path: &GitRepoPath,
+        new_path: &GitRepoPath,
+    ) -> Result<(), RustGitError> {
         let old_path_in_repo = self.path_in_repo(old_path);
         let new_path_in_repo = self.path_in_repo(new_path);
         Ok(fs::rename(old_path_in_repo, new_path_in_repo)?)
@@ -270,7 +284,12 @@ impl GitRepo {
         Ok(fs::symlink_metadata(path_in_repo)?)
     }
 
-    pub(crate) fn index(&mut self, obj_type: GitObjectType, content: String, write: bool) -> Result<GitObjectId, RustGitError> {
+    pub(crate) fn index(
+        &self,
+        obj_type: GitObjectType,
+        content: String,
+        write: bool,
+    ) -> Result<GitObjectId, RustGitError> {
         // C Git has much more additional logic here, we just implement the core indexing logic to keep things simple:
         // - C Git implementation: https://github.com/git/git/blob/master/object-file.c#L2448
         // - C Git core indexing function: https://github.com/git/git/blob/master/object-file.c#L2312
@@ -286,6 +305,53 @@ impl GitRepo {
         }
 
         Ok(obj.id)
+    }
+
+    pub(crate) fn write_index_as_tree_internal(
+        &self,
+        entries: Vec<&GitIndexEntry>,
+        offset: usize,
+    ) -> Result<GitObjectId, RustGitError> {
+        let mut subtrees: HashMap<String, Vec<&GitIndexEntry>> = HashMap::new();
+        let mut objects: Vec<&GitIndexEntry> = Vec::new();
+
+        // Identify sub-trees and objects to add to create tree.
+        for entry in entries {
+            let path_string = &entry.path_name.as_string()[offset..];
+
+            if let Some(slash_idx) = path_string.find("/") {
+                // Path still contains a slash, so this object is part of a sub-tree.
+                let dir = &path_string[..slash_idx];
+                if let Some(existing_entries) = subtrees.get_mut(dir) {
+                    existing_entries.push(entry);
+                } else {
+                    subtrees.insert(dir.to_string(), vec![entry]);
+                }
+            } else {
+                // No slash, so this object is a direct child of this tree.
+                objects.push(entry);
+            }
+        }
+
+        let mut contents = Vec::new();
+
+        // Recursively compute sub-trees and add contents.
+        for (name, entries) in subtrees {
+            let subtree_id = self.write_index_as_tree_internal(entries, offset + name.len() + 1)?;
+            contents.push(format!("040000 tree {}\t{}", subtree_id, name));
+        }
+        // Add blob object contents.
+        for object in objects {
+            let name = object.path_name.as_string()[offset..].to_string();
+            contents.push(format!("{} blob {}\t{}", object.mode, object.name, name))
+        }
+
+        return self.index(GitObjectType::Tree, contents.join("\n"), true);
+    }
+
+    /// Saves the current index as a tree object in the repo.
+    pub(crate) fn write_index_as_tree(&self) -> Result<GitObjectId, RustGitError> {
+        self.write_index_as_tree_internal(self.index.iter_entries().collect(), 0)
     }
 
     pub(crate) fn write_index(&mut self) -> Result<(), RustGitError> {
