@@ -1,18 +1,17 @@
 use std::collections::HashMap;
 use std::fmt::Display;
-use std::fs::{create_dir_all, Metadata};
+use std::fs::Metadata;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::{env, fs};
 
 use crate::index::{GitIndex, GitIndexEntry};
-use crate::object::{GitObject, GitObjectContents, GitObjectId, GitObjectType};
+use crate::object::{GitObject, GitObjectId, GitObjectType};
+use crate::object_store::GitObjectStore;
 use crate::{config::GitConfig, error::RustGitError, hash::get_hasher};
 
-use flate2::read::ZlibDecoder;
-use flate2::{write::ZlibEncoder, Compression};
 use std::fs::File;
-use std::io::{Read, Write};
+use std::io::Read;
 
 const DEFAULT_GIT_DIR_NAME: &str = ".git";
 
@@ -106,6 +105,8 @@ pub(crate) struct GitRepo {
     pub(crate) working_dir: PathBuf,
     /// Path to git directory of the repo.
     pub(crate) git_dir: PathBuf,
+    /// Object store for repo.
+    pub(crate) obj_store: GitObjectStore,
 }
 
 impl GitRepo {
@@ -181,6 +182,7 @@ impl GitRepo {
         let root_dir = resolved_git_dir.parent().unwrap().canonicalize()?;
         let abs_root_dir = root_dir.canonicalize()?;
         let working_dir = current_dir.strip_prefix(&abs_root_dir)?.to_path_buf();
+        let obj_store = GitObjectStore::new(&resolved_git_dir);
 
         Ok(RepoState::Repo(GitRepo {
             config,
@@ -188,54 +190,8 @@ impl GitRepo {
             root_dir: abs_root_dir,
             working_dir,
             git_dir: resolved_git_dir,
+            obj_store,
         }))
-    }
-
-    pub(crate) fn loose_object_path(&self, obj_id: &GitObjectId) -> (PathBuf, PathBuf) {
-        // C Git additional logic omitted:
-        // https://github.com/git/git/blob/11c821f2f2a31e70fb5cc449f9a29401c333aad2/object-file.c#L436-L445
-
-        let (folder_name, file_name) = obj_id.folder_and_file_name();
-
-        let obj_folder = self.git_dir.join("objects").join(folder_name);
-
-        (obj_folder, Path::new(file_name).to_path_buf())
-    }
-
-    fn write_object(&self, obj: &GitObject) -> Result<(), RustGitError> {
-        let (obj_folder, obj_file_name) = self.loose_object_path(&obj.id);
-
-        let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
-        encoder.write_all(obj.content.to_string().as_bytes())?;
-        let compressed_bytes = encoder.finish()?;
-
-        create_dir_all(&obj_folder)?;
-        let obj_file_path = obj_folder.join(obj_file_name);
-        let mut object_file = File::create(obj_file_path)?;
-        object_file.write_all(&compressed_bytes)?;
-
-        Ok(())
-    }
-
-    pub(crate) fn read_object(
-        &self,
-        obj_id: &GitObjectId,
-    ) -> Result<Option<GitObjectContents>, RustGitError> {
-        let (obj_folder, obj_file_name) = self.loose_object_path(&obj_id);
-        let obj_file_path = obj_folder.join(obj_file_name);
-
-        if !obj_file_path.exists() {
-            return Ok(None);
-        }
-
-        let object_file = File::open(obj_file_path)?;
-
-        let mut decoder = ZlibDecoder::new(object_file);
-        let mut decoded = String::new();
-        decoder.read_to_string(&mut decoded).unwrap();
-        let obj = decoded.parse::<GitObjectContents>()?;
-
-        Ok(Some(obj))
     }
 
     pub(crate) fn index_path(
@@ -312,7 +268,7 @@ impl GitRepo {
         let obj = GitObject::new(obj_type, content, &mut hasher)?;
 
         if write {
-            self.write_object(&obj)?;
+            self.obj_store.write_object(&obj)?;
         }
 
         Ok(obj.id)
@@ -369,14 +325,6 @@ impl GitRepo {
         self.index.write(&self.git_dir)
     }
 
-    /// Returns true if the provided object id exists in the repo.
-    pub(crate) fn is_valid_object_id(&self, obj_id: &GitObjectId) -> bool {
-        let (obj_folder, obj_file_name) = self.loose_object_path(&obj_id);
-        let obj_file_path = obj_folder.join(obj_file_name);
-
-        return obj_file_path.exists();
-    }
-
     pub(crate) fn get_timestamp(&self) -> Result<String, RustGitError> {
         let now = SystemTime::now();
         let since_epoch = now.duration_since(UNIX_EPOCH)?.as_millis();
@@ -393,7 +341,7 @@ impl GitRepo {
         parents: &Vec<GitObjectId>,
         message: &str,
     ) -> Result<GitObjectId, RustGitError> {
-        if !self.is_valid_object_id(&tree) {
+        if !self.obj_store.is_valid_object_id(&tree) {
             return Err(RustGitError::new(format!(
                 "fatal: not a valid object name {}",
                 tree
@@ -401,7 +349,7 @@ impl GitRepo {
         }
 
         for parent in parents {
-            if !self.is_valid_object_id(&parent) {
+            if !self.obj_store.is_valid_object_id(&parent) {
                 return Err(RustGitError::new(format!(
                     "fatal: not a valid object name {}",
                     parent
@@ -432,7 +380,7 @@ impl GitRepo {
 
                 let obj = GitObject::new(GitObjectType::Commit, content, &mut hasher)?;
 
-                self.write_object(&obj)?;
+                self.obj_store.write_object(&obj)?;
 
                 return Ok(obj.id);
             }

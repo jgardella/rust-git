@@ -4,6 +4,7 @@ mod error;
 mod hash;
 mod index;
 mod object;
+mod object_store;
 mod options;
 mod repo;
 
