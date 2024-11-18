@@ -107,6 +107,16 @@ impl TestGitRepo {
         String::from(from_utf8(&cmd.stdout).unwrap().trim())
     }
 
+    pub fn write_tree(&self) -> String {
+        let cmd = Command::cargo_bin("rust-git")
+            .unwrap()
+            .arg("write-tree")
+            .current_dir(self.temp_dir.path())
+            .unwrap();
+
+        String::from(from_utf8(&cmd.stdout).unwrap().trim())
+    }
+
     pub fn git_dir(&self) -> ChildPath {
         self.temp_dir.child(".git")
     }

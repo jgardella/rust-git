@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::fmt::Display;
 use std::fs::{create_dir_all, Metadata};
 use std::path::{Path, PathBuf};
+use std::time::{SystemTime, UNIX_EPOCH};
 use std::{env, fs};
 
 use crate::index::{GitIndex, GitIndexEntry};
@@ -14,6 +15,16 @@ use std::fs::File;
 use std::io::{Read, Write};
 
 const DEFAULT_GIT_DIR_NAME: &str = ".git";
+
+const IDENTITY_ERR: &str = "*** Please tell me who you are.
+
+Run
+
+git config --global user.email \"you@example.com\"
+git config --global user.name \"Your Name\"
+
+to set your account's default identity.
+Omit --global to set the identity only in this repository.";
 
 pub(crate) enum RepoState {
     Repo(GitRepo),
@@ -356,5 +367,70 @@ impl GitRepo {
 
     pub(crate) fn write_index(&mut self) -> Result<(), RustGitError> {
         self.index.write(&self.git_dir)
+    }
+
+    /// Returns true if the provided object id exists in the repo.
+    pub(crate) fn is_valid_object_id(&self, obj_id: &GitObjectId) -> bool {
+        let (obj_folder, obj_file_name) = self.loose_object_path(&obj_id);
+        let obj_file_path = obj_folder.join(obj_file_name);
+
+        return obj_file_path.exists();
+    }
+
+    pub(crate) fn get_timestamp(&self) -> Result<String, RustGitError> {
+        let now = SystemTime::now();
+        let since_epoch = now.duration_since(UNIX_EPOCH)?.as_millis();
+        // TODO:
+        // - Support other timezones ; currently always returning timestamp in UTC.
+        // - Support other time formats (RFC 2822, ISO 8601); currently only supporting Git internal format.
+        Ok(format!("{since_epoch}"))
+    }
+
+    /// Writes a commit object to the repo.
+    pub(crate) fn write_commit(
+        &self,
+        tree: &GitObjectId,
+        parents: &Vec<GitObjectId>,
+        message: &str,
+    ) -> Result<GitObjectId, RustGitError> {
+        if !self.is_valid_object_id(&tree) {
+            return Err(RustGitError::new(format!(
+                "fatal: not a valid object name {}",
+                tree
+            )));
+        }
+
+        for parent in parents {
+            if !self.is_valid_object_id(&parent) {
+                return Err(RustGitError::new(format!(
+                    "fatal: not a valid object name {}",
+                    parent
+                )));
+            }
+        }
+
+        // TODO:
+        // - load user name and config based on env vars, other config sources
+        // - support separate settings for author and committer
+        match (&self.config.user.name, &self.config.user.name) {
+            (Some(user_name), Some(user_email)) => {
+                let mut hasher = get_hasher(self.config.extensions.objectformat);
+                let timestamp = self.get_timestamp()?;
+                let content = format!(
+                    "tree {tree}
+author {user_name} <{user_email}> {timestamp}
+committer {user_name} <{user_email}> {timestamp}
+
+{message}",
+                );
+
+                let obj = GitObject::new(GitObjectType::Commit, content, &mut hasher)?;
+
+                self.write_object(&obj)?;
+
+                return Ok(obj.id);
+            }
+            _ => Err(RustGitError::new(IDENTITY_ERR)),
+        }
     }
 }

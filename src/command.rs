@@ -1,5 +1,6 @@
 use crate::{
-    add::command::AddCommand, cat_file::command::CatFileCommand, error::RustGitError,
+    add::command::AddCommand, cat_file::command::CatFileCommand,
+    commit_tree::command::CommitTreeCommand, error::RustGitError,
     hash_object::command::HashObjectCommand, init::command::InitCommand,
     ls_files::command::LsFilesCommand, mv::command::MvCommand, repo::RepoState,
     restore::command::RestoreCommand, rm::command::RmCommand,
@@ -32,5 +33,8 @@ pub(crate) fn from_cli(value: Cli) -> Result<Box<dyn GitCommand>, RustGitError> 
         CliCommand::Mv(args) => Ok(Box::new(MvCommand::new(args))),
         CliCommand::Restore(args) => Ok(Box::new(RestoreCommand::new(args))),
         CliCommand::WriteTree(args) => Ok(Box::new(WriteTreeCommand::new(args))),
+        CliCommand::CommitTree(args) => {
+            CommitTreeCommand::new(args).map(|res| Box::new(res) as Box<dyn GitCommand>)
+        }
     }
 }
