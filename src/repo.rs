@@ -412,7 +412,7 @@ impl GitRepo {
         // TODO:
         // - load user name and config based on env vars, other config sources
         // - support separate settings for author and committer
-        match (&self.config.user.name, &self.config.user.name) {
+        match (&self.config.user.name, &self.config.user.email) {
             (Some(user_name), Some(user_email)) => {
                 let mut hasher = get_hasher(self.config.extensions.objectformat);
                 let timestamp = self.get_timestamp()?;

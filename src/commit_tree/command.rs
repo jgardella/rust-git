@@ -5,7 +5,6 @@ use crate::{command::GitCommand, object::GitObjectId, repo::RepoState, RustGitEr
 use super::cli::CommitTreeArgs;
 
 pub(crate) struct CommitTreeCommand {
-    args: CommitTreeArgs,
     tree: GitObjectId,
     parents: Vec<GitObjectId>,
     message: String,
@@ -22,8 +21,11 @@ impl CommitTreeCommand {
 
         let message = args.messages.join("\n");
 
+        if message.is_empty() {
+            return Err(RustGitError::new("commit message cannot be empty"));
+        }
+
         Ok(CommitTreeCommand {
-            args,
             tree,
             parents,
             message,
