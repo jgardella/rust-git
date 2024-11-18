@@ -416,13 +416,19 @@ impl GitRepo {
             (Some(user_name), Some(user_email)) => {
                 let mut hasher = get_hasher(self.config.extensions.objectformat);
                 let timestamp = self.get_timestamp()?;
-                let content = format!(
-                    "tree {tree}
-author {user_name} <{user_email}> {timestamp}
-committer {user_name} <{user_email}> {timestamp}
+                let mut content = String::new();
 
-{message}",
-                );
+                content.push_str(&format!("tree {tree}\n"));
+
+                for parent in parents {
+                    content.push_str(&format!("parent {parent}\n"));
+                }
+
+                content.push_str(&format!("author {user_name} <{user_email}> {timestamp}\n"));
+                content.push_str(&format!(
+                    "committer {user_name} <{user_email}> {timestamp}\n\n"
+                ));
+                content.push_str(&message);
 
                 let obj = GitObject::new(GitObjectType::Commit, content, &mut hasher)?;
 
