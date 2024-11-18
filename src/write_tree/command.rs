@@ -2,13 +2,11 @@ use crate::{command::GitCommand, repo::RepoState, RustGitError};
 
 use super::cli::WriteTreeArgs;
 
-pub(crate) struct WriteTreeCommand {
-    args: WriteTreeArgs,
-}
+pub(crate) struct WriteTreeCommand {}
 
 impl WriteTreeCommand {
-    pub fn new(args: WriteTreeArgs) -> WriteTreeCommand {
-        WriteTreeCommand { args }
+    pub fn new(_: WriteTreeArgs) -> WriteTreeCommand {
+        WriteTreeCommand {}
     }
 }
 

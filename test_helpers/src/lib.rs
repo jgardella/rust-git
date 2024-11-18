@@ -52,6 +52,12 @@ impl TestGitRepo {
             .unwrap();
     }
 
+    pub fn write_config(&self, config_contents: &[u8]) {
+        let config_file_path = self.temp_dir.child(".git").child("config");
+        let mut test_file = File::create(config_file_path).unwrap();
+        test_file.write_all(config_contents).unwrap();
+    }
+
     pub fn init_in_dir(&self, dir_name: &str) {
         Command::cargo_bin("rust-git")
             .unwrap()
