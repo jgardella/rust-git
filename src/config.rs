@@ -1,6 +1,10 @@
-use std::{fs::File, io::{Read, Write}, path::Path};
+use std::{
+    fs::File,
+    io::{Read, Write},
+    path::Path,
+};
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 use crate::{error::RustGitError, init::cli::HashAlgorithm};
 
@@ -9,11 +13,12 @@ const CONFIG_FILE_NAME: &str = "config";
 // We are using the Default trait here, which means we'll include all the fields
 // in the serialized config file, even if they're set to the default.
 // TODO: look into skipping default values when serializing:
-// https://stackoverflow.com/questions/53900612/how-do-i-avoid-generating-json-when-serializing-a-value-that-is-null-or-a-defaul 
+// https://stackoverflow.com/questions/53900612/how-do-i-avoid-generating-json-when-serializing-a-value-that-is-null-or-a-defaul
 #[derive(Serialize, Deserialize, Debug, Default)]
 #[serde(default)]
 pub(crate) struct GitConfig {
     pub(crate) core: CoreConfig,
+    pub(crate) user: UserConfig,
     pub(crate) extensions: ExtensionsConfig,
 }
 
@@ -31,12 +36,12 @@ pub(crate) struct CoreConfig {
 
 impl Default for CoreConfig {
     fn default() -> Self {
-        Self { 
+        Self {
             repositoryformatversion: 1,
             filemode: true,
             bare: false,
             logallrefupdates: true,
-            ignorecase: false, 
+            ignorecase: false,
             precomposeunicode: true,
             symlinks: true,
         }
@@ -50,8 +55,7 @@ pub(crate) struct ExtensionsConfig {
 }
 
 impl GitConfig {
-    pub(crate) fn new(dir: &Path) -> Result<GitConfig, RustGitError>
-    {
+    pub(crate) fn new(dir: &Path) -> Result<GitConfig, RustGitError> {
         let file_path = dir.join(CONFIG_FILE_NAME);
 
         if !file_path.exists() {
@@ -64,8 +68,7 @@ impl GitConfig {
         Ok(config)
     }
 
-    pub(crate) fn write(self, dir: &Path) -> Result<(), RustGitError>
-    {
+    pub(crate) fn write(self, dir: &Path) -> Result<(), RustGitError> {
         let config_file_path = dir.join(CONFIG_FILE_NAME);
         let mut config_file = File::create(config_file_path)?;
         // TODO: using TOML for ease of use, but the git config format isn't TOML
@@ -73,4 +76,11 @@ impl GitConfig {
         config_file.write_all(toml::to_string_pretty(&self)?.as_bytes())?;
         Ok(())
     }
+}
+
+#[derive(Serialize, Deserialize, Default, Debug)]
+#[serde(default)]
+pub(crate) struct UserConfig {
+    pub(crate) name: Option<String>,
+    pub(crate) email: Option<String>,
 }

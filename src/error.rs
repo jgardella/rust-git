@@ -1,9 +1,17 @@
-use std::{array::TryFromSliceError, fmt::{self, Debug}, num::ParseIntError, path::StripPrefixError, string::FromUtf8Error};
 use hex::FromHexError;
+use std::{
+    array::TryFromSliceError,
+    fmt::{self, Debug},
+    num::ParseIntError,
+    path::StripPrefixError,
+    string::FromUtf8Error,
+    time::SystemTimeError,
+};
 
+// TODO: convert RustGitError type to enum?
 #[derive(Debug, PartialEq)]
 pub(crate) struct RustGitError {
-    error: String
+    error: String,
 }
 
 impl RustGitError {
@@ -68,6 +76,12 @@ impl From<FromUtf8Error> for RustGitError {
 
 impl From<StripPrefixError> for RustGitError {
     fn from(value: StripPrefixError) -> Self {
+        Self::new(format!("{value:?}"))
+    }
+}
+
+impl From<SystemTimeError> for RustGitError {
+    fn from(value: SystemTimeError) -> Self {
         Self::new(format!("{value:?}"))
     }
 }
