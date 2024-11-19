@@ -1,20 +1,25 @@
-use std::{fs::{self, Metadata}, path::Path};
+use std::{
+    fs::{self, Metadata},
+    path::Path,
+};
 
-use crate::{command::GitCommand, index::GitIndexEntry, repo::{GitRepo, RepoState}, RustGitError};
+use crate::{
+    command::GitCommand,
+    index::GitIndexEntry,
+    repo::{GitRepo, RepoState},
+    RustGitError,
+};
 
 use super::cli::AddArgs;
 
 pub(crate) struct AddCommand {
     args: AddArgs,
-
     // TODO: add base args
 }
 
 impl AddCommand {
     pub fn new(args: AddArgs) -> AddCommand {
-        AddCommand {
-            args
-        }
+        AddCommand { args }
     }
 }
 
@@ -48,8 +53,7 @@ fn add_one_path(path: &str, metadata: Metadata, repo: &mut GitRepo) -> Result<()
 }
 
 impl GitCommand for AddCommand {
-    fn execute(&self, repo_state: RepoState) -> Result<(), RustGitError>
-    {
+    fn execute(&self, repo_state: RepoState) -> Result<(), RustGitError> {
         let mut repo = repo_state.try_get()?;
 
         for file_path in &self.args.pathspec {

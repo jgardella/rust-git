@@ -123,6 +123,19 @@ impl TestGitRepo {
         String::from(from_utf8(&cmd.stdout).unwrap().trim())
     }
 
+    pub fn commit_tree(&self, tree_obj_id: &str, message: &str) -> String {
+        let cmd = Command::cargo_bin("rust-git")
+            .unwrap()
+            .arg("commit-tree")
+            .arg(&tree_obj_id)
+            .arg("-m")
+            .arg(&message)
+            .current_dir(self.temp_dir.path())
+            .unwrap();
+
+        String::from(from_utf8(&cmd.stdout).unwrap().trim())
+    }
+
     pub fn git_dir(&self) -> ChildPath {
         self.temp_dir.child(".git")
     }
@@ -140,6 +153,21 @@ impl TestGitRepo {
         let mut obj_file = File::open(obj_file_path).unwrap();
         let obj_file_contents = Self::decompress_object_file(&mut obj_file);
         assert_eq!(contents, obj_file_contents);
+    }
+
+    pub fn assert_ref_file(&self, git_ref: &str, contents: &str) {
+        let ref_file_path = self.git_dir().child(git_ref);
+        ref_file_path.assert(predicate::path::exists());
+
+        let mut ref_file = File::open(ref_file_path).unwrap();
+        let mut ref_file_contents = String::new();
+        ref_file.read_to_string(&mut ref_file_contents).unwrap();
+        assert_eq!(contents, ref_file_contents);
+    }
+
+    pub fn assert_no_ref_file(&self, git_ref: &str) {
+        let ref_file_path = self.git_dir().child(git_ref);
+        ref_file_path.assert(predicate::path::missing());
     }
 
     pub fn assert_no_obj_file(&self, obj_id: &str) {

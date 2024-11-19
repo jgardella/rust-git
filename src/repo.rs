@@ -11,6 +11,7 @@ use crate::object::{
     GitTreeObject,
 };
 use crate::object_store::GitObjectStore;
+use crate::refs::GitRefs;
 use crate::{config::GitConfig, error::RustGitError};
 
 use std::fs::File;
@@ -110,6 +111,7 @@ pub(crate) struct GitRepo {
     pub(crate) git_dir: PathBuf,
     /// Object store for repo.
     pub(crate) obj_store: GitObjectStore,
+    pub(crate) refs: GitRefs,
 }
 
 impl GitRepo {
@@ -186,6 +188,7 @@ impl GitRepo {
         let abs_root_dir = root_dir.canonicalize()?;
         let working_dir = current_dir.strip_prefix(&abs_root_dir)?.to_path_buf();
         let obj_store = GitObjectStore::new(&resolved_git_dir);
+        let refs = GitRefs::new(&resolved_git_dir)?;
 
         Ok(RepoState::Repo(GitRepo {
             config,
@@ -194,6 +197,7 @@ impl GitRepo {
             working_dir,
             git_dir: resolved_git_dir,
             obj_store,
+            refs,
         }))
     }
 
@@ -251,6 +255,21 @@ impl GitRepo {
     pub(crate) fn remove_file(&self, path: &GitRepoPath) -> Result<(), RustGitError> {
         let path_in_repo = self.path_in_repo(path);
         Ok(fs::remove_file(path_in_repo)?)
+    }
+
+    pub(crate) fn update_ref(
+        &self,
+        git_ref: &str,
+        new_value: &str,
+        old_value: Option<&str>,
+    ) -> Result<(), RustGitError> {
+        if !git_ref.starts_with("refs/") {
+            // TODO: C Git supports other things here (e.g. symbolic links as refs),
+            // but for now we just support simple refs
+            return Err(RustGitError::new(format!("invalid ref {git_ref}")));
+        }
+        let git_ref = git_ref.trim_start_matches("refs/");
+        return self.refs.update_ref(git_ref, new_value, old_value);
     }
 
     /// Rename file relative to root of repo.
