@@ -54,7 +54,7 @@ fn collect_items_to_hash(cmd: &HashObjectCommand) -> Result<Vec<Box<dyn BufRead>
 
 impl GitCommand for HashObjectCommand {
     fn execute(&self, repo_state: RepoState) -> Result<(), RustGitError> {
-        let mut repo = repo_state.try_get()?;
+        let repo = repo_state.try_get()?;
 
         // Omitting implementaion of --no-filters, --path, and --literally for now, for simplicity
         if self.args.no_filters {

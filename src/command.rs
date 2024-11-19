@@ -4,7 +4,7 @@ use crate::{
     hash_object::command::HashObjectCommand, init::command::InitCommand,
     ls_files::command::LsFilesCommand, mv::command::MvCommand, repo::RepoState,
     restore::command::RestoreCommand, rm::command::RmCommand,
-    write_tree::command::WriteTreeCommand, Cli, CliCommand,
+    update_ref::command::UpdateRefCommand, write_tree::command::WriteTreeCommand, Cli, CliCommand,
 };
 
 pub(crate) trait GitCommand {
@@ -36,5 +36,6 @@ pub(crate) fn from_cli(value: Cli) -> Result<Box<dyn GitCommand>, RustGitError> 
         CliCommand::CommitTree(args) => {
             CommitTreeCommand::new(args).map(|res| Box::new(res) as Box<dyn GitCommand>)
         }
+        CliCommand::UpdateRef(args) => Ok(Box::new(UpdateRefCommand::new(args))),
     }
 }

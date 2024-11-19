@@ -6,6 +6,7 @@ mod index;
 mod object;
 mod object_store;
 mod options;
+mod refs;
 mod repo;
 
 mod add;
@@ -17,6 +18,7 @@ mod ls_files;
 mod mv;
 mod restore;
 mod rm;
+mod update_ref;
 mod write_tree;
 
 use std::{path::PathBuf, process::ExitCode};
@@ -35,6 +37,7 @@ use mv::cli::MvArgs;
 use repo::GitRepo;
 use restore::cli::RestoreArgs;
 use rm::cli::RmArgs;
+use update_ref::cli::UpdateRefArgs;
 use write_tree::cli::WriteTreeArgs;
 
 fn parse_config_override(s: &str) -> Result<(String, String), String> {
@@ -253,6 +256,7 @@ enum CliCommand {
     Restore(RestoreArgs),
     WriteTree(WriteTreeArgs),
     CommitTree(CommitTreeArgs),
+    UpdateRef(UpdateRefArgs),
 }
 
 fn load_repo_and_execute(cli: Cli) -> Result<(), RustGitError> {
