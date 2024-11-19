@@ -6,9 +6,12 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use std::{env, fs};
 
 use crate::index::{GitIndex, GitIndexEntry};
-use crate::object::{GitObject, GitObjectId, GitObjectType};
+use crate::object::{
+    GitBlobObject, GitCommitObject, GitObject, GitObjectId, GitObjectType, GitTreeEntry,
+    GitTreeObject,
+};
 use crate::object_store::GitObjectStore;
-use crate::{config::GitConfig, error::RustGitError, hash::get_hasher};
+use crate::{config::GitConfig, error::RustGitError};
 
 use std::fs::File;
 use std::io::Read;
@@ -194,6 +197,21 @@ impl GitRepo {
         }))
     }
 
+    pub fn hash_obj(
+        &self,
+        obj_type: GitObjectType,
+        contents: String,
+        write: bool,
+    ) -> Result<GitObjectId, RustGitError> {
+        let obj = GitObject::new(obj_type, contents)?;
+
+        if write {
+            self.obj_store.write_raw_object(&obj)?;
+        }
+
+        Ok(obj.id)
+    }
+
     pub(crate) fn index_path(
         &mut self,
         path: &Path,
@@ -201,9 +219,10 @@ impl GitRepo {
     ) -> Result<GitObjectId, RustGitError> {
         if metadata.is_file() {
             let mut file = File::open(path)?;
-            let mut content = String::new();
-            file.read_to_string(&mut content)?;
-            return self.index(GitObjectType::Blob, content, true);
+            let mut contents = String::new();
+            file.read_to_string(&mut contents)?;
+            let blob_obj = GitBlobObject { contents };
+            return self.obj_store.write_object(blob_obj);
         } else if metadata.is_symlink() {
             todo!("handle links");
         } else if metadata.is_dir() {
@@ -251,32 +270,9 @@ impl GitRepo {
         Ok(fs::symlink_metadata(path_in_repo)?)
     }
 
-    pub(crate) fn index(
-        &self,
-        obj_type: GitObjectType,
-        content: String,
-        write: bool,
-    ) -> Result<GitObjectId, RustGitError> {
-        // C Git has much more additional logic here, we just implement the core indexing logic to keep things simple:
-        // - C Git implementation: https://github.com/git/git/blob/master/object-file.c#L2448
-        // - C Git core indexing function: https://github.com/git/git/blob/master/object-file.c#L2312
-
-        // Omitted blob conversion: https://github.com/git/git/blob/master/object-file.c#L2312
-        // Omitted hash format check: https://github.com/git/git/blob/master/object-file.c#L2335-L2343
-
-        let mut hasher = get_hasher(self.config.extensions.objectformat);
-        let obj = GitObject::new(obj_type, content, &mut hasher)?;
-
-        if write {
-            self.obj_store.write_object(&obj)?;
-        }
-
-        Ok(obj.id)
-    }
-
     pub(crate) fn write_index_as_tree_internal(
         &self,
-        entries: Vec<&GitIndexEntry>,
+        entries: &Vec<&GitIndexEntry>,
         offset: usize,
     ) -> Result<GitObjectId, RustGitError> {
         let mut subtrees: HashMap<String, Vec<&GitIndexEntry>> = HashMap::new();
@@ -300,38 +296,56 @@ impl GitRepo {
             }
         }
 
-        let mut contents = Vec::new();
+        let mut tree_entries = Vec::new();
 
         // Recursively compute sub-trees and add contents.
         for (name, entries) in subtrees {
-            let subtree_id = self.write_index_as_tree_internal(entries, offset + name.len() + 1)?;
-            contents.push(format!("040000 tree {}\t{}", subtree_id, name));
+            let subtree_id =
+                self.write_index_as_tree_internal(&entries, offset + name.len() + 1)?;
+            let entry = GitTreeEntry {
+                mode: "040000".to_string(),
+                entry_type: "tree".to_string(),
+                obj_id: subtree_id,
+                name,
+            };
+            tree_entries.push(entry);
         }
         // Add blob object contents.
         for object in objects {
             let name = object.path_name.as_string()[offset..].to_string();
-            contents.push(format!("{} blob {}\t{}", object.mode, object.name, name))
+            let entry = GitTreeEntry {
+                mode: object.mode.to_string(),
+                entry_type: "blob".to_string(),
+                obj_id: object.name.clone(),
+                name,
+            };
+            tree_entries.push(entry);
         }
 
-        return self.index(GitObjectType::Tree, contents.join("\n"), true);
+        let tree_obj = GitTreeObject {
+            entries: tree_entries,
+        };
+
+        return self.obj_store.write_object(tree_obj);
     }
 
     /// Saves the current index as a tree object in the repo.
     pub(crate) fn write_index_as_tree(&self) -> Result<GitObjectId, RustGitError> {
-        self.write_index_as_tree_internal(self.index.iter_entries().collect(), 0)
+        let all_index_entries = &self.index.iter_entries().collect();
+
+        self.write_index_as_tree_internal(all_index_entries, 0)
     }
 
     pub(crate) fn write_index(&mut self) -> Result<(), RustGitError> {
         self.index.write(&self.git_dir)
     }
 
-    pub(crate) fn get_timestamp(&self) -> Result<String, RustGitError> {
+    // TODO:
+    // - Support other timezones ; currently always returning timestamp in UTC.
+    // - Support other time formats (RFC 2822, ISO 8601); currently only supporting Git internal format.
+    pub(crate) fn get_timestamp(&self) -> Result<u128, RustGitError> {
         let now = SystemTime::now();
-        let since_epoch = now.duration_since(UNIX_EPOCH)?.as_millis();
-        // TODO:
-        // - Support other timezones ; currently always returning timestamp in UTC.
-        // - Support other time formats (RFC 2822, ISO 8601); currently only supporting Git internal format.
-        Ok(format!("{since_epoch}"))
+        return Ok(now.duration_since(UNIX_EPOCH)?.as_millis());
     }
 
     /// Writes a commit object to the repo.
@@ -362,27 +376,19 @@ impl GitRepo {
         // - support separate settings for author and committer
         match (&self.config.user.name, &self.config.user.email) {
             (Some(user_name), Some(user_email)) => {
-                let mut hasher = get_hasher(self.config.extensions.objectformat);
                 let timestamp = self.get_timestamp()?;
-                let mut content = String::new();
+                let commit_obj = GitCommitObject {
+                    tree: tree.clone(),
+                    parents: parents.clone(),
+                    message: message.to_string(),
+                    author_name: user_name.to_string(),
+                    author_email: user_email.to_string(),
+                    committer_name: user_name.to_string(),
+                    committer_email: user_email.to_string(),
+                    timestamp: timestamp,
+                };
 
-                content.push_str(&format!("tree {tree}\n"));
-
-                for parent in parents {
-                    content.push_str(&format!("parent {parent}\n"));
-                }
-
-                content.push_str(&format!("author {user_name} <{user_email}> {timestamp}\n"));
-                content.push_str(&format!(
-                    "committer {user_name} <{user_email}> {timestamp}\n\n"
-                ));
-                content.push_str(&message);
-
-                let obj = GitObject::new(GitObjectType::Commit, content, &mut hasher)?;
-
-                self.obj_store.write_object(&obj)?;
-
-                return Ok(obj.id);
+                return self.obj_store.write_object(commit_obj);
             }
             _ => Err(RustGitError::new(IDENTITY_ERR)),
         }

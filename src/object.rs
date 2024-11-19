@@ -2,6 +2,7 @@ use std::{fmt::Display, str::FromStr};
 
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
+use sha1::{Digest, Sha1};
 
 use crate::{error::RustGitError, hash::Hasher};
 
@@ -163,21 +164,14 @@ impl FromStr for GitObjectContents {
 }
 
 impl GitObject {
-    fn get_object_id(
-        header: &GitObjectHeader,
-        content: &str,
-        hasher: &mut Box<dyn Hasher>,
-    ) -> GitObjectId {
+    fn get_object_id(header: &GitObjectHeader, content: &str) -> GitObjectId {
+        let mut hasher = Sha1::new();
         hasher.update_fn(&header.to_string());
         hasher.update_fn(&content);
         hasher.final_oid_fn()
     }
 
-    pub(crate) fn new(
-        obj_type: GitObjectType,
-        content: String,
-        hasher: &mut Box<dyn Hasher>,
-    ) -> Result<GitObject, RustGitError> {
+    pub(crate) fn new(obj_type: GitObjectType, content: String) -> Result<GitObject, RustGitError> {
         let header = GitObjectHeader {
             obj_type,
             size: content.len(),
@@ -191,11 +185,89 @@ impl GitObject {
             )));
         }
 
-        let id = Self::get_object_id(&header, &content, hasher);
+        let id = Self::get_object_id(&header, &content);
         let content = GitObjectContents { header, content };
 
         Ok(GitObject { id, content })
     }
+}
+
+pub(crate) struct GitBlobObject {
+    pub(crate) contents: String,
+}
+
+impl TryFrom<GitBlobObject> for GitObject {
+    type Error = RustGitError;
+
+    fn try_from(value: GitBlobObject) -> Result<Self, Self::Error> {
+        return GitObject::new(GitObjectType::Blob, value.contents);
+    }
+}
+
+pub(crate) struct GitCommitObject {
+    pub(crate) tree: GitObjectId,
+    pub(crate) parents: Vec<GitObjectId>,
+    pub(crate) message: String,
+    pub(crate) author_name: String,
+    pub(crate) author_email: String,
+    pub(crate) committer_name: String,
+    pub(crate) committer_email: String,
+    pub(crate) timestamp: u128,
+}
+
+impl TryFrom<GitCommitObject> for GitObject {
+    type Error = RustGitError;
+
+    fn try_from(value: GitCommitObject) -> Result<Self, Self::Error> {
+        let mut content = String::new();
+
+        content.push_str(&format!("tree {}\n", value.tree));
+
+        for parent in value.parents {
+            content.push_str(&format!("parent {parent}\n"));
+        }
+
+        content.push_str(&format!(
+            "author {} <{}> {}\n",
+            value.author_name, value.author_email, value.timestamp
+        ));
+        content.push_str(&format!(
+            "committer {} <{}> {}\n\n",
+            value.committer_name, value.committer_email, value.timestamp
+        ));
+        content.push_str(&value.message);
+
+        return GitObject::new(GitObjectType::Commit, content);
+    }
+}
+
+pub(crate) struct GitTreeEntry {
+    pub(crate) mode: String,
+    pub(crate) entry_type: String,
+    pub(crate) obj_id: GitObjectId,
+    pub(crate) name: String,
+}
+
+impl TryFrom<GitTreeObject> for GitObject {
+    type Error = RustGitError;
+
+    fn try_from(value: GitTreeObject) -> Result<Self, Self::Error> {
+        let mut contents = Vec::new();
+
+        // Recursively compute sub-trees and add contents.
+        for entry in value.entries {
+            contents.push(format!(
+                "{} {} {}\t{}",
+                entry.mode, entry.entry_type, entry.obj_id, entry.name
+            ));
+        }
+
+        return GitObject::new(GitObjectType::Tree, contents.join("\n"));
+    }
+}
+
+pub(crate) struct GitTreeObject {
+    pub(crate) entries: Vec<GitTreeEntry>,
 }
 
 #[cfg(test)]
@@ -304,14 +376,11 @@ mod tests {
     }
 
     mod git_object {
-        use sha1::{Digest, Sha1};
-
         use super::super::*;
 
         #[test]
         fn should_create_new_blob_object() {
-            let mut hasher: Box<dyn Hasher> = Box::new(Sha1::new());
-            let obj_result = GitObject::new(GitObjectType::Blob, String::from("test"), &mut hasher);
+            let obj_result = GitObject::new(GitObjectType::Blob, String::from("test"));
 
             assert_eq!(
                 obj_result,
