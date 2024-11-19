@@ -13,7 +13,7 @@ const OBJECTS_FOLDER: &str = "objects";
 
 pub(crate) struct GitObjectStore {
     /// Path to object store folder.
-    pub(crate) obj_dir: PathBuf,
+    obj_dir: PathBuf,
 }
 
 impl GitObjectStore {
@@ -34,7 +34,23 @@ impl GitObjectStore {
         (obj_folder, Path::new(file_name).to_path_buf())
     }
 
-    pub(crate) fn write_object(&self, obj: &GitObject) -> Result<(), RustGitError> {
+    pub(crate) fn write_object<T>(&self, obj: T) -> Result<GitObjectId, RustGitError>
+    where
+        T: TryInto<GitObject, Error = RustGitError>,
+    {
+        let obj: GitObject = obj.try_into()?;
+        self.write_raw_object(&obj)?;
+        return Ok(obj.id);
+    }
+
+    pub(crate) fn write_raw_object(&self, obj: &GitObject) -> Result<(), RustGitError> {
+        // C Git has much more additional logic here, we just implement the core indexing logic to keep things simple:
+        // - C Git implementation: https://github.com/git/git/blob/master/object-file.c#L2448
+        // - C Git core indexing function: https://github.com/git/git/blob/master/object-file.c#L2312
+
+        // Omitted blob conversion: https://github.com/git/git/blob/master/object-file.c#L2312
+        // Omitted hash format check: https://github.com/git/git/blob/master/object-file.c#L2335-L2343
+
         let (obj_folder, obj_file_name) = self.loose_object_path(&obj.id);
 
         let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
