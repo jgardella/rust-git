@@ -10,6 +10,7 @@ const HEADS_FOLDER: &str = "heads";
 const TAGS_FOLDER: &str = "tags";
 
 pub(crate) struct GitRefs {
+    git_dir: PathBuf,
     refs_dir: PathBuf,
     heads_dir: PathBuf,
     tags_dir: PathBuf,
@@ -25,6 +26,7 @@ impl GitRefs {
         fs::create_dir_all(&tags_dir)?;
 
         Ok(GitRefs {
+            git_dir: git_dir.to_path_buf(),
             refs_dir,
             heads_dir,
             tags_dir,
@@ -63,6 +65,45 @@ impl GitRefs {
             None => {
                 return Ok(self.write_ref(&ref_path, new_value)?);
             }
+        }
+    }
+
+    pub(crate) fn get_symbolic_ref(&self, ref_name: &str) -> Result<Option<String>, RustGitError> {
+        let path = self.git_dir.join(ref_name);
+        if !fs::exists(&path)? {
+            return Ok(None);
+        }
+
+        let value = fs::read_to_string(&path)?;
+
+        return Ok(Some(value));
+    }
+
+    pub(crate) fn update_symbolic_ref(
+        &self,
+        ref_name: &str,
+        new_value: &str,
+    ) -> Result<(), RustGitError> {
+        let path = self.git_dir.join(ref_name);
+        fs::write(path, format!("ref: {new_value}"))?;
+        Ok(())
+    }
+
+    pub(crate) fn delete_symbolic_ref(&self, ref_name: &str) -> Result<(), RustGitError> {
+        let path = self.git_dir.join(ref_name);
+        if !fs::exists(&path)? {
+            return Ok(());
+        }
+
+        let value = fs::read_to_string(&path)?;
+
+        if value.starts_with("ref: ") {
+            fs::remove_file(&path)?;
+            Ok(())
+        } else {
+            Err(RustGitError::new(format!(
+                "cannot delete detatched symbolic-ref '{ref_name}'"
+            )))
         }
     }
 }

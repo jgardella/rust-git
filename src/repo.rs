@@ -412,4 +412,20 @@ impl GitRepo {
             _ => Err(RustGitError::new(IDENTITY_ERR)),
         }
     }
+
+    pub(crate) fn get_symbolic_ref(&self, ref_name: &str) -> Result<Option<String>, RustGitError> {
+        self.refs.get_symbolic_ref(ref_name)
+    }
+
+    pub(crate) fn update_symbolic_ref(
+        &self,
+        ref_name: &str,
+        new_value: &str,
+    ) -> Result<(), RustGitError> {
+        self.refs.update_symbolic_ref(ref_name, new_value)
+    }
+
+    pub(crate) fn delete_symbolic_ref(&self, ref_name: &str) -> Result<(), RustGitError> {
+        self.refs.delete_symbolic_ref(ref_name)
+    }
 }

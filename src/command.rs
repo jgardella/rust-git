@@ -1,10 +1,19 @@
 use crate::{
-    add::command::AddCommand, cat_file::command::CatFileCommand,
-    commit_tree::command::CommitTreeCommand, error::RustGitError,
-    hash_object::command::HashObjectCommand, init::command::InitCommand,
-    ls_files::command::LsFilesCommand, mv::command::MvCommand, repo::RepoState,
-    restore::command::RestoreCommand, rm::command::RmCommand,
-    update_ref::command::UpdateRefCommand, write_tree::command::WriteTreeCommand, Cli, CliCommand,
+    add::command::AddCommand,
+    cat_file::command::CatFileCommand,
+    commit_tree::command::CommitTreeCommand,
+    error::RustGitError,
+    hash_object::command::HashObjectCommand,
+    init::command::InitCommand,
+    ls_files::command::LsFilesCommand,
+    mv::command::MvCommand,
+    repo::RepoState,
+    restore::command::RestoreCommand,
+    rm::command::RmCommand,
+    symbolic_ref::{cli::SymbolicRefArgs, command::SymbolicRefCommand},
+    update_ref::command::UpdateRefCommand,
+    write_tree::command::WriteTreeCommand,
+    Cli, CliCommand,
 };
 
 pub(crate) trait GitCommand {
@@ -37,5 +46,6 @@ pub(crate) fn from_cli(value: Cli) -> Result<Box<dyn GitCommand>, RustGitError> 
             CommitTreeCommand::new(args).map(|res| Box::new(res) as Box<dyn GitCommand>)
         }
         CliCommand::UpdateRef(args) => Ok(Box::new(UpdateRefCommand::new(args))),
+        CliCommand::SymbolicRef(args) => Ok(Box::new(SymbolicRefCommand::new(args))),
     }
 }
