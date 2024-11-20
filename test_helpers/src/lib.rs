@@ -136,6 +136,16 @@ impl TestGitRepo {
         String::from(from_utf8(&cmd.stdout).unwrap().trim())
     }
 
+    pub fn update_ref(&self, ref_name: &str, ref_value: &str) {
+        Command::cargo_bin("rust-git")
+            .unwrap()
+            .arg("update-ref")
+            .arg(&ref_name)
+            .arg(&ref_value)
+            .current_dir(self.temp_dir.path())
+            .unwrap();
+    }
+
     pub fn git_dir(&self) -> ChildPath {
         self.temp_dir.child(".git")
     }
