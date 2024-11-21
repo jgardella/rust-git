@@ -143,4 +143,32 @@ email = \"test@user.com\"",
         // File should have same contents.
         test_git_repo.assert_ref_file("refs/heads/master", &commit_obj_id);
     }
+
+    #[test]
+    fn should_create_lightweight_tag() {
+        let test_git_repo = TestGitRepo::new();
+        test_git_repo.temp_dir.create_test_file("test.txt", b"test");
+        test_git_repo.init();
+        test_git_repo.write_config(
+            b"
+[user]
+name = \"Test User\"
+email = \"test@user.com\"",
+        );
+
+        test_git_repo.add("test.txt");
+        let tree_obj_id = test_git_repo.write_tree();
+        let commit_obj_id = test_git_repo.commit_tree(&tree_obj_id, "Test commit");
+
+        Command::cargo_bin("rust-git")
+            .unwrap()
+            .arg("update-ref")
+            .arg("refs/tags/v1.0")
+            .arg(&commit_obj_id)
+            .current_dir(test_git_repo.temp_dir.path())
+            .assert()
+            .success();
+
+        test_git_repo.assert_ref_file("refs/tags/v1.0", &commit_obj_id);
+    }
 }
