@@ -19,6 +19,7 @@ mod mv;
 mod restore;
 mod rm;
 mod symbolic_ref;
+mod tag;
 mod update_ref;
 mod write_tree;
 
@@ -39,6 +40,7 @@ use repo::GitRepo;
 use restore::cli::RestoreArgs;
 use rm::cli::RmArgs;
 use symbolic_ref::cli::SymbolicRefArgs;
+use tag::cli::TagArgs;
 use update_ref::cli::UpdateRefArgs;
 use write_tree::cli::WriteTreeArgs;
 
@@ -260,6 +262,7 @@ enum CliCommand {
     CommitTree(CommitTreeArgs),
     UpdateRef(UpdateRefArgs),
     SymbolicRef(SymbolicRefArgs),
+    Tag(TagArgs),
 }
 
 fn load_repo_and_execute(cli: Cli) -> Result<(), RustGitError> {

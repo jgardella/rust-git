@@ -146,6 +146,16 @@ impl TestGitRepo {
             .unwrap();
     }
 
+    pub fn symbolic_ref(&self, ref_name: &str, ref_value: &str) {
+        Command::cargo_bin("rust-git")
+            .unwrap()
+            .arg("symbolic-ref")
+            .arg(&ref_name)
+            .arg(&ref_value)
+            .current_dir(self.temp_dir.path())
+            .unwrap();
+    }
+
     pub fn git_dir(&self) -> ChildPath {
         self.temp_dir.child(".git")
     }
@@ -154,25 +164,30 @@ impl TestGitRepo {
         self.git_dir().child("objects")
     }
 
-    pub fn assert_obj_file(&self, obj_id: &str, contents: &str) {
+    pub fn read_obj_file(&self, obj_id: &str) -> String {
         let (folder_name, file_name) = obj_id.split_at(2);
 
         let obj_file_path = self.objects_dir().child(folder_name).child(file_name);
         obj_file_path.assert(predicate::path::exists());
 
         let mut obj_file = File::open(obj_file_path).unwrap();
-        let obj_file_contents = Self::decompress_object_file(&mut obj_file);
+        Self::decompress_object_file(&mut obj_file)
+    }
+
+    pub fn assert_obj_file(&self, obj_id: &str, contents: &str) {
+        let obj_file_contents = self.read_obj_file(obj_id);
         assert_eq!(contents, obj_file_contents);
     }
 
     pub fn assert_ref_file(&self, git_ref: &str, contents: &str) {
+        let ref_file_contents = self.assert_ref_file_read(git_ref);
+        assert_eq!(contents, ref_file_contents);
+    }
+
+    pub fn assert_ref_file_read(&self, git_ref: &str) -> String {
         let ref_file_path = self.git_dir().child(git_ref);
         ref_file_path.assert(predicate::path::exists());
-
-        let mut ref_file = File::open(ref_file_path).unwrap();
-        let mut ref_file_contents = String::new();
-        ref_file.read_to_string(&mut ref_file_contents).unwrap();
-        assert_eq!(contents, ref_file_contents);
+        fs::read_to_string(&ref_file_path).unwrap()
     }
 
     pub fn assert_no_ref_file(&self, git_ref: &str) {
