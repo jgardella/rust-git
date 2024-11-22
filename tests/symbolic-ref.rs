@@ -51,7 +51,7 @@ email = \"test@user.com\"",
             .current_dir(test_git_repo.temp_dir.path())
             .assert()
             .success()
-            .stdout("refs/heads/test");
+            .stdout("refs/heads/test\n");
 
         // Delete symbolic ref.
         Command::cargo_bin("rust-git")
