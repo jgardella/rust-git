@@ -3,7 +3,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::error::RustGitError;
+use crate::{error::RustGitError, object::GitObjectId};
 
 const REFS_FOLDER: &str = "refs";
 const HEADS_FOLDER: &str = "heads";
@@ -105,5 +105,64 @@ impl GitRefs {
                 "cannot delete detatched symbolic-ref '{ref_name}'"
             )))
         }
+    }
+
+    pub(crate) fn tag_path(&self, tag_name: &str) -> PathBuf {
+        self.tags_dir.join(tag_name)
+    }
+
+    pub(crate) fn try_read_tag(&self, tag_name: &str) -> Result<Option<String>, RustGitError> {
+        let tag_path = self.tag_path(tag_name);
+        self.try_read_ref(&tag_path)
+    }
+
+    pub(crate) fn get_head_ref(&self) -> Result<Option<GitObjectId>, RustGitError> {
+        if let Some(head_ref_value) = self.get_symbolic_ref("HEAD")? {
+            if !head_ref_value.starts_with("ref: ") {
+                return Err(RustGitError::new("HEAD is in detatched state"));
+            }
+
+            let ref_path = self
+                .git_dir
+                .join(head_ref_value.trim_start_matches("ref: "));
+
+            let ref_id = self.try_read_ref(&ref_path)?.map(GitObjectId::new);
+            Ok(ref_id)
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub(crate) fn create_tag(
+        &self,
+        tag_name: &str,
+        object_id: &GitObjectId,
+    ) -> Result<(), RustGitError> {
+        let tag_path = self.tag_path(tag_name);
+        self.write_ref(&tag_path, &object_id.to_string())
+    }
+
+    pub(crate) fn delete_tag(&self, tag_name: &str) -> Result<(), RustGitError> {
+        let tag_path = self.tag_path(tag_name);
+        if !fs::exists(&tag_path)? {
+            return Err(RustGitError::new(format!("no tag {tag_name}")));
+        }
+
+        return Ok(fs::remove_file(&tag_path)?);
+    }
+
+    pub(crate) fn list_tags(&self) -> Result<Vec<String>, RustGitError> {
+        let tag_files = fs::read_dir(&self.tags_dir)?;
+
+        let mut tags = Vec::new();
+        for tag_file in tag_files {
+            if let Some(tag_name) = tag_file?.file_name().to_str() {
+                tags.push(tag_name.to_string())
+            } else {
+                return Err(RustGitError::new("invalid tag name"));
+            }
+        }
+
+        Ok(tags)
     }
 }

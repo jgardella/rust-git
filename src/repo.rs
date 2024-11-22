@@ -7,8 +7,8 @@ use std::{env, fs};
 
 use crate::index::{GitIndex, GitIndexEntry};
 use crate::object::{
-    GitBlobObject, GitCommitObject, GitObject, GitObjectId, GitObjectType, GitTreeEntry,
-    GitTreeObject,
+    GitBlobObject, GitCommitObject, GitObject, GitObjectId, GitObjectType, GitTagObject,
+    GitTreeEntry, GitTreeObject,
 };
 use crate::object_store::GitObjectStore;
 use crate::refs::GitRefs;
@@ -427,5 +427,59 @@ impl GitRepo {
 
     pub(crate) fn delete_symbolic_ref(&self, ref_name: &str) -> Result<(), RustGitError> {
         self.refs.delete_symbolic_ref(ref_name)
+    }
+
+    pub(crate) fn read_tag(&self, tag_name: &str) -> Result<Option<String>, RustGitError> {
+        self.refs.try_read_tag(tag_name)
+    }
+
+    pub(crate) fn create_annotated_tag(
+        &self,
+        tag_name: &str,
+        object_id: &GitObjectId,
+        message: &str,
+    ) -> Result<(), RustGitError> {
+        if let Some(target_object) = self.obj_store.read_object(&object_id)? {
+            match (&self.config.user.name, &self.config.user.email) {
+                (Some(user_name), Some(user_email)) => {
+                    let timestamp = self.get_timestamp()?;
+                    let commit_obj = GitTagObject {
+                        tag_name: tag_name.to_string(),
+                        object_id: object_id.clone(),
+                        object_type: target_object.header.obj_type,
+                        tagger_name: user_name.to_string(),
+                        tagger_email: user_email.to_string(),
+                        timestamp,
+                        message: message.to_string(),
+                    };
+
+                    let tag_obj_id = self.obj_store.write_object(commit_obj)?;
+                    self.refs.create_tag(tag_name, &tag_obj_id)
+                }
+                _ => Err(RustGitError::new(IDENTITY_ERR)),
+            }
+        } else {
+            Err(RustGitError::new(format!("no object {object_id}")))
+        }
+    }
+
+    pub(crate) fn create_lightweight_tag(
+        &self,
+        tag_name: &str,
+        object_id: &GitObjectId,
+    ) -> Result<(), RustGitError> {
+        self.refs.create_tag(tag_name, object_id)
+    }
+
+    pub(crate) fn delete_tag(&self, tag_name: &str) -> Result<(), RustGitError> {
+        self.refs.delete_tag(tag_name)
+    }
+
+    pub(crate) fn list_tags(&self) -> Result<Vec<String>, RustGitError> {
+        self.refs.list_tags()
+    }
+
+    pub(crate) fn get_head_ref(&self) -> Result<Option<GitObjectId>, RustGitError> {
+        self.refs.get_head_ref()
     }
 }

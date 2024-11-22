@@ -270,6 +270,35 @@ pub(crate) struct GitTreeObject {
     pub(crate) entries: Vec<GitTreeEntry>,
 }
 
+pub(crate) struct GitTagObject {
+    pub(crate) tag_name: String,
+    pub(crate) object_id: GitObjectId,
+    pub(crate) object_type: GitObjectType,
+    pub(crate) tagger_name: String,
+    pub(crate) tagger_email: String,
+    pub(crate) timestamp: u128,
+    pub(crate) message: String,
+}
+
+impl TryFrom<GitTagObject> for GitObject {
+    type Error = RustGitError;
+
+    fn try_from(value: GitTagObject) -> Result<Self, Self::Error> {
+        let mut contents = String::new();
+
+        contents.push_str(&format!("object {}\n", value.object_id));
+        contents.push_str(&format!("type {}\n", value.object_type));
+        contents.push_str(&format!("tag {}\n", value.tag_name));
+        contents.push_str(&format!(
+            "tagger {} <{}> {}\n\n",
+            value.tagger_name, value.tagger_email, value.timestamp
+        ));
+        contents.push_str(&value.message);
+
+        return GitObject::new(GitObjectType::Tag, contents);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     mod git_object_type {

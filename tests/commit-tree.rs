@@ -91,14 +91,14 @@ email = \"test@user.com\"",
 
         assert_eq!(cat_file_type, "commit");
 
-        let cat_file_content = test_git_repo.cat_file("-p", &commit_id);
-        let file_content_lines: Vec<&str> = cat_file_content.split("\n").collect();
+        let cat_file_contents = test_git_repo.cat_file("-p", &commit_id);
+        let file_content_lines: Vec<&str> = cat_file_contents.split("\n").collect();
 
-        let line1: &str = file_content_lines[0];
-        let line2: &str = file_content_lines[1];
-        let line3: &str = file_content_lines[2];
-        let line4: &str = file_content_lines[3];
-        let line5: &str = file_content_lines[4];
+        let line1 = file_content_lines[0];
+        let line2 = file_content_lines[1];
+        let line3 = file_content_lines[2];
+        let line4 = file_content_lines[3];
+        let line5 = file_content_lines[4];
 
         assert_eq!(line1, "tree 303a1b0cbbaeaf5ad4b4150e053126e3b103e4d9");
 
