@@ -80,7 +80,6 @@ impl GitCommand for SymbolicRefCommand {
             SymbolicRefCommand::DeleteSymbolicRef(delete_cmd) => {
                 // TODO: respect quiet flag for deletions
                 repo.delete_symbolic_ref(&delete_cmd.ref_name)?;
-                todo!()
             }
         }
 
