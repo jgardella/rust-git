@@ -116,20 +116,22 @@ impl GitRefs {
         self.try_read_ref(&tag_path)
     }
 
-    pub(crate) fn get_head_ref(&self) -> Result<Option<GitObjectId>, RustGitError> {
+    pub(crate) fn get_head_ref(
+        &self,
+    ) -> Result<(Option<String>, Option<GitObjectId>), RustGitError> {
         if let Some(head_ref_value) = self.get_symbolic_ref("HEAD")? {
             if !head_ref_value.starts_with("ref: ") {
                 return Err(RustGitError::new("HEAD is in detatched state"));
             }
 
-            let ref_path = self
-                .git_dir
-                .join(head_ref_value.trim_start_matches("ref: "));
+            let head_ref_branch = head_ref_value.trim_start_matches("ref: ");
+
+            let ref_path = self.git_dir.join(head_ref_branch);
 
             let ref_id = self.try_read_ref(&ref_path)?.map(GitObjectId::new);
-            Ok(ref_id)
+            Ok((Some(head_ref_branch.to_string()), ref_id))
         } else {
-            Ok(None)
+            Ok((None, None))
         }
     }
 
