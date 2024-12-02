@@ -66,7 +66,7 @@ impl GitCommand for TagCommand {
                 let object_id = if let Some(object_id) = &create_cmd.object_id {
                     object_id
                 } else {
-                    if let Some(head_ref) = repo.get_head_ref()? {
+                    if let (_, Some(head_ref)) = repo.get_head_ref()? {
                         &head_ref.clone()
                     } else {
                         return Err(RustGitError::new("no HEAD ref"));

@@ -11,6 +11,7 @@ mod repo;
 
 mod add;
 mod cat_file;
+mod commit;
 mod commit_tree;
 mod hash_object;
 mod init;
@@ -30,6 +31,7 @@ use cat_file::cli::CatFileArgs;
 use clap::{Parser, Subcommand};
 
 use command::from_cli;
+use commit::cli::CommitArgs;
 use commit_tree::cli::CommitTreeArgs;
 use error::RustGitError;
 use hash_object::cli::HashObjectArgs;
@@ -259,6 +261,7 @@ enum CliCommand {
     Mv(MvArgs),
     Restore(RestoreArgs),
     WriteTree(WriteTreeArgs),
+    Commit(CommitArgs),
     CommitTree(CommitTreeArgs),
     UpdateRef(UpdateRefArgs),
     SymbolicRef(SymbolicRefArgs),

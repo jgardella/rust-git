@@ -1,0 +1,146 @@
+mod integration_tests {
+    use std::str::from_utf8;
+
+    use assert_cmd::{assert::OutputAssertExt, Command};
+    use predicates::str::starts_with;
+    use test_helpers::{TempDirExt, TestGitRepo};
+
+    #[test]
+    fn should_return_error_emssage_when_user_config_unset() {
+        let test_git_repo = TestGitRepo::new();
+        test_git_repo.temp_dir.create_test_file("test.txt", b"test");
+        test_git_repo.init();
+        test_git_repo.add("test.txt");
+
+        Command::cargo_bin("rust-git")
+            .unwrap()
+            .arg("commit")
+            .arg("-m")
+            .arg("Test commit")
+            .current_dir(test_git_repo.temp_dir.path())
+            .assert()
+            .failure()
+            .stderr(starts_with("*** Please tell me who you are."));
+    }
+
+    #[test]
+    fn should_return_error_message_for_missing_commit_message() {
+        let test_git_repo = TestGitRepo::new();
+        test_git_repo.temp_dir.create_test_file("test.txt", b"test");
+
+        test_git_repo.init();
+        test_git_repo.write_config(
+            b"
+[user]
+name = \"Test User\"
+email = \"test@user.com\"",
+        );
+
+        test_git_repo.add("test.txt");
+
+        Command::cargo_bin("rust-git")
+            .unwrap()
+            .arg("commit")
+            .current_dir(test_git_repo.temp_dir.path())
+            .assert()
+            .failure()
+            .stderr("commit message cannot be empty");
+    }
+
+    #[test]
+    fn should_create_commit_and_update_head() {
+        let test_git_repo = TestGitRepo::new();
+        test_git_repo.temp_dir.create_test_file("test.txt", b"test");
+        test_git_repo
+            .temp_dir
+            .create_test_file("test2.txt", b"test2");
+        test_git_repo.temp_dir.create_test_dir("test_dir");
+        test_git_repo
+            .temp_dir
+            .create_test_file("test_dir/test_in_dir.txt", b"test_in_dir");
+
+        test_git_repo.init();
+        test_git_repo.write_config(
+            b"
+[user]
+name = \"Test User\"
+email = \"test@user.com\"",
+        );
+
+        test_git_repo.add("test.txt test_dir");
+
+        let cmd = Command::cargo_bin("rust-git")
+            .unwrap()
+            .arg("commit")
+            .arg("-m")
+            .arg("Test commit")
+            .current_dir(test_git_repo.temp_dir.path())
+            .unwrap();
+
+        let commit_id = String::from(from_utf8(&cmd.stdout).unwrap().trim());
+
+        cmd.assert().success();
+
+        test_git_repo.assert_ref_file("refs/heads/main", &commit_id);
+
+        let cat_file_type = test_git_repo.cat_file("-t", &commit_id);
+
+        assert_eq!(cat_file_type, "commit");
+
+        let cat_file_contents = test_git_repo.cat_file("-p", &commit_id);
+        let file_content_lines: Vec<&str> = cat_file_contents.split("\n").collect();
+
+        let line1 = file_content_lines[0];
+        let line2 = file_content_lines[1];
+        let line3 = file_content_lines[2];
+        let line4 = file_content_lines[3];
+        let line5 = file_content_lines[4];
+
+        assert_eq!(line1, "tree 303a1b0cbbaeaf5ad4b4150e053126e3b103e4d9");
+
+        // TODO: check timestamp (somehow mock it)
+        assert!(line2.starts_with("author Test User <test@user.com>"));
+        assert!(line3.starts_with("committer Test User <test@user.com>"));
+        assert_eq!(line4, "");
+        assert_eq!(line5, "Test commit");
+
+        // TODO: create commit with parent and check file content
+        test_git_repo.add("test2.txt");
+        let cmd2 = Command::cargo_bin("rust-git")
+            .unwrap()
+            .arg("commit")
+            .arg("-m")
+            .arg("Another commit")
+            .current_dir(test_git_repo.temp_dir.path())
+            .unwrap();
+
+        let commit_id2 = String::from(from_utf8(&cmd2.stdout).unwrap().trim());
+
+        cmd2.assert().success();
+
+        test_git_repo.assert_ref_file("refs/heads/main", &commit_id2);
+
+        let cat_file_type = test_git_repo.cat_file("-t", &commit_id2);
+
+        assert_eq!(cat_file_type, "commit");
+
+        let cat_file_content = test_git_repo.cat_file("-p", &commit_id2);
+        let file_content_lines: Vec<&str> = cat_file_content.split("\n").collect();
+
+        let line1: &str = file_content_lines[0];
+        let line2: &str = file_content_lines[1];
+        let line3: &str = file_content_lines[2];
+        let line4: &str = file_content_lines[3];
+        let line5: &str = file_content_lines[4];
+        let line6: &str = file_content_lines[5];
+
+        assert_eq!(line1, "tree 03f9b0b16745d6529b86f7e7cf12bb0a254b6b8e");
+        assert_eq!(line2, format!("parent {commit_id}"));
+
+        // TODO: check timestamp (somehow mock it)
+        assert!(line3.starts_with("author Test User <test@user.com>"));
+        assert!(line4.starts_with("committer Test User <test@user.com>"));
+        assert_eq!(line5, "");
+        assert_eq!(line6, "Another commit");
+    }
+}

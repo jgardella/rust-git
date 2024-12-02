@@ -479,7 +479,9 @@ impl GitRepo {
         self.refs.list_tags()
     }
 
-    pub(crate) fn get_head_ref(&self) -> Result<Option<GitObjectId>, RustGitError> {
+    pub(crate) fn get_head_ref(
+        &self,
+    ) -> Result<(Option<String>, Option<GitObjectId>), RustGitError> {
         self.refs.get_head_ref()
     }
 }
