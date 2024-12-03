@@ -1,5 +1,6 @@
 use crate::{
     add::command::AddCommand,
+    branch::command::BranchCommand,
     cat_file::command::CatFileCommand,
     commit::command::CommitCommand,
     commit_tree::command::CommitTreeCommand,
@@ -54,6 +55,9 @@ pub(crate) fn from_cli(value: Cli) -> Result<Box<dyn GitCommand>, RustGitError> 
         CliCommand::SymbolicRef(args) => Ok(Box::new(SymbolicRefCommand::new(args))),
         CliCommand::Tag(args) => {
             TagCommand::new(args).map(|res| Box::new(res) as Box<dyn GitCommand>)
+        }
+        CliCommand::Branch(args) => {
+            BranchCommand::new(args).map(|res| Box::new(res) as Box<dyn GitCommand>)
         }
     }
 }

@@ -479,6 +479,30 @@ impl GitRepo {
         self.refs.list_tags()
     }
 
+    pub(crate) fn create_ref(
+        &self,
+        ref_name: &str,
+        object_id: &GitObjectId,
+    ) -> Result<(), RustGitError> {
+        self.refs.create_ref(ref_name, object_id)
+    }
+
+    pub(crate) fn list_refs(&self) -> Result<Vec<String>, RustGitError> {
+        self.refs.list_refs()
+    }
+
+    pub(crate) fn rename_ref(
+        &self,
+        old_ref_name: &str,
+        new_ref_name: &str,
+    ) -> Result<(), RustGitError> {
+        self.refs.rename_ref(old_ref_name, new_ref_name)
+    }
+
+    pub(crate) fn delete_ref(&self, ref_name: &str) -> Result<(), RustGitError> {
+        self.refs.delete_ref(ref_name)
+    }
+
     pub(crate) fn get_head_ref(
         &self,
     ) -> Result<(Option<String>, Option<GitObjectId>), RustGitError> {

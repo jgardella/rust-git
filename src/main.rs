@@ -10,6 +10,7 @@ mod refs;
 mod repo;
 
 mod add;
+mod branch;
 mod cat_file;
 mod commit;
 mod commit_tree;
@@ -27,6 +28,7 @@ mod write_tree;
 use std::{path::PathBuf, process::ExitCode};
 
 use add::cli::AddArgs;
+use branch::cli::BranchArgs;
 use cat_file::cli::CatFileArgs;
 use clap::{Parser, Subcommand};
 
@@ -254,6 +256,7 @@ enum CliCommand {
     Init(InitArgs),
     #[clap(alias = "stage")]
     Add(AddArgs),
+    Branch(BranchArgs),
     HashObject(HashObjectArgs),
     CatFile(CatFileArgs),
     LsFiles(LsFilesArgs),

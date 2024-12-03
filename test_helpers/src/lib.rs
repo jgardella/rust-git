@@ -136,6 +136,18 @@ impl TestGitRepo {
         String::from(from_utf8(&cmd.stdout).unwrap().trim())
     }
 
+    pub fn commit(&self, message: &str) -> String {
+        let cmd = Command::cargo_bin("rust-git")
+            .unwrap()
+            .arg("commit")
+            .arg("-m")
+            .arg(&message)
+            .current_dir(self.temp_dir.path())
+            .unwrap();
+
+        String::from(from_utf8(&cmd.stdout).unwrap().trim())
+    }
+
     pub fn update_ref(&self, ref_name: &str, ref_value: &str) {
         Command::cargo_bin("rust-git")
             .unwrap()

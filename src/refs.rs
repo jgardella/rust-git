@@ -111,6 +111,10 @@ impl GitRefs {
         self.tags_dir.join(tag_name)
     }
 
+    pub(crate) fn ref_path(&self, ref_name: &str) -> PathBuf {
+        self.heads_dir.join(ref_name)
+    }
+
     pub(crate) fn try_read_tag(&self, tag_name: &str) -> Result<Option<String>, RustGitError> {
         let tag_path = self.tag_path(tag_name);
         self.try_read_ref(&tag_path)
@@ -166,5 +170,59 @@ impl GitRefs {
         }
 
         Ok(tags)
+    }
+
+    pub(crate) fn create_ref(
+        &self,
+        ref_name: &str,
+        object_id: &GitObjectId,
+    ) -> Result<(), RustGitError> {
+        let ref_path = self.ref_path(ref_name);
+        self.write_ref(&ref_path, &object_id.to_string())
+    }
+
+    pub(crate) fn rename_ref(
+        &self,
+        old_ref_name: &str,
+        new_ref_name: &str,
+    ) -> Result<(), RustGitError> {
+        let old_ref_path = self.ref_path(old_ref_name);
+        let new_ref_path = self.ref_path(new_ref_name);
+
+        if !fs::exists(&old_ref_path)? {
+            return Err(RustGitError::new(format!("no ref {old_ref_name}")));
+        }
+
+        if fs::exists(&new_ref_path)? {
+            return Err(RustGitError::new(format!(
+                "ref {new_ref_name} already exists"
+            )));
+        }
+
+        Ok(fs::rename(&old_ref_path, &new_ref_path)?)
+    }
+
+    pub(crate) fn delete_ref(&self, ref_name: &str) -> Result<(), RustGitError> {
+        let ref_path = self.ref_path(ref_name);
+        if !fs::exists(&ref_path)? {
+            return Err(RustGitError::new(format!("no ref {ref_name}")));
+        }
+
+        return Ok(fs::remove_file(&ref_path)?);
+    }
+
+    pub(crate) fn list_refs(&self) -> Result<Vec<String>, RustGitError> {
+        let ref_files = fs::read_dir(&self.heads_dir)?;
+
+        let mut ref_values = Vec::new();
+        for ref_file in ref_files {
+            if let Some(ref_name) = ref_file?.file_name().to_str() {
+                ref_values.push(ref_name.to_string())
+            } else {
+                return Err(RustGitError::new("invalid ref name"));
+            }
+        }
+
+        Ok(ref_values)
     }
 }
