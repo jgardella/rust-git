@@ -7,8 +7,8 @@ use std::{env, fs};
 
 use crate::index::{GitIndex, GitIndexEntry};
 use crate::object::{
-    GitBlobObject, GitCommitObject, GitObject, GitObjectId, GitObjectType, GitTagObject,
-    GitTreeEntry, GitTreeObject,
+    GitBlobObject, GitCommitIdentity, GitCommitIdentityType, GitCommitObject, GitObjectId,
+    GitObjectRaw, GitObjectType, GitTagObject, GitTreeEntry, GitTreeObject,
 };
 use crate::object_store::GitObjectStore;
 use crate::refs::GitRefs;
@@ -207,7 +207,7 @@ impl GitRepo {
         contents: String,
         write: bool,
     ) -> Result<GitObjectId, RustGitError> {
-        let obj = GitObject::new(obj_type, contents)?;
+        let obj = GitObjectRaw::new(obj_type, contents)?;
 
         if write {
             self.obj_store.write_raw_object(&obj)?;
@@ -255,6 +255,10 @@ impl GitRepo {
     pub(crate) fn remove_file(&self, path: &GitRepoPath) -> Result<(), RustGitError> {
         let path_in_repo = self.path_in_repo(path);
         Ok(fs::remove_file(path_in_repo)?)
+    }
+
+    pub(crate) fn get_ref(&self, git_ref: &str) -> Result<Option<GitObjectId>, RustGitError> {
+        self.refs.try_read_ref(git_ref)
     }
 
     pub(crate) fn update_ref(
@@ -397,14 +401,21 @@ impl GitRepo {
             (Some(user_name), Some(user_email)) => {
                 let timestamp = self.get_timestamp()?;
                 let commit_obj = GitCommitObject {
-                    tree: tree.clone(),
+                    tree_id: tree.clone(),
                     parents: parents.clone(),
                     message: message.to_string(),
-                    author_name: user_name.to_string(),
-                    author_email: user_email.to_string(),
-                    committer_name: user_name.to_string(),
-                    committer_email: user_email.to_string(),
-                    timestamp: timestamp,
+                    author: GitCommitIdentity {
+                        identity_type: GitCommitIdentityType::Author,
+                        name: user_name.to_string(),
+                        email: user_email.to_string(),
+                        timestamp: timestamp,
+                    },
+                    committer: GitCommitIdentity {
+                        identity_type: GitCommitIdentityType::Committer,
+                        name: user_name.to_string(),
+                        email: user_email.to_string(),
+                        timestamp: timestamp,
+                    },
                 };
 
                 return self.obj_store.write_object(commit_obj);
@@ -439,14 +450,14 @@ impl GitRepo {
         object_id: &GitObjectId,
         message: &str,
     ) -> Result<(), RustGitError> {
-        if let Some(target_object) = self.obj_store.read_object(&object_id)? {
+        if let Some(target_object) = self.obj_store.read_object_raw(&object_id)? {
             match (&self.config.user.name, &self.config.user.email) {
                 (Some(user_name), Some(user_email)) => {
                     let timestamp = self.get_timestamp()?;
                     let commit_obj = GitTagObject {
                         tag_name: tag_name.to_string(),
                         object_id: object_id.clone(),
-                        object_type: target_object.header.obj_type,
+                        object_type: target_object.object.header.obj_type,
                         tagger_name: user_name.to_string(),
                         tagger_email: user_email.to_string(),
                         timestamp,

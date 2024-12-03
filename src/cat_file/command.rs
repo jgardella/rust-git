@@ -2,7 +2,7 @@ use std::io::{self, BufRead};
 
 use crate::{
     command::GitCommand,
-    object::{GitObject, GitObjectContents, GitObjectId, GitObjectType},
+    object::{GitObjectContents, GitObjectId, GitObjectRaw, GitObjectType},
     repo::{GitRepo, RepoState},
     RustGitError,
 };
@@ -63,33 +63,33 @@ fn show(
     s: Result<String, std::io::Error>,
     i: usize,
     repo: &mut GitRepo,
-) -> Result<GitObject, String> {
+) -> Result<GitObjectRaw, String> {
     let line = s.map_err(|e| format!("error reading input line {} ({})", i, e))?;
     let obj_id = line
         .parse::<GitObjectId>()
         .map_err(|e| format!("error parsing object id {line}: ({e})"))?;
     let obj = repo
         .obj_store
-        .read_object(&obj_id)
+        .read_object_raw(&obj_id)
         .map_err(|e| format!("error reading object {}, ({})", obj_id, e))?;
 
     match obj {
-        Some(content) => Ok(GitObject {
+        Some(content) => Ok(GitObjectRaw {
             id: obj_id,
-            content: content,
+            object: content.object,
         }),
         None => Err(format!("object {} not found", obj_id)),
     }
 }
 
 fn print_result(
-    result: Option<GitObjectContents>,
+    result: Option<GitObjectRaw>,
     obj_id: &GitObjectId,
     f: impl Fn(GitObjectContents) -> String,
 ) {
     match result {
         Some(obj) => {
-            print!("{}", f(obj));
+            print!("{}", f(obj.object));
         }
         None => {
             print!("object {} not found", obj_id);
@@ -103,25 +103,25 @@ impl GitCommand for CatFileCommand {
 
         match self {
             CatFileCommand::ShowType(obj_id) => {
-                let obj = repo.obj_store.read_object(obj_id)?;
+                let obj = repo.obj_store.read_object_raw(obj_id)?;
                 print_result(obj, obj_id, |obj| obj.header.obj_type.to_string());
             }
             CatFileCommand::ShowSize(obj_id) => {
-                let obj = repo.obj_store.read_object(obj_id)?;
+                let obj = repo.obj_store.read_object_raw(obj_id)?;
                 print_result(obj, obj_id, |obj| obj.header.size.to_string());
             }
 
             CatFileCommand::Print(obj_id) => {
-                let obj = repo.obj_store.read_object(obj_id)?;
+                let obj = repo.obj_store.read_object_raw(obj_id)?;
                 print_result(obj, obj_id, |obj| obj.content);
             }
             // TODO: how to use obj_type?
             CatFileCommand::ShowContent(_, obj_id) => {
-                let obj = repo.obj_store.read_object(obj_id)?;
+                let obj = repo.obj_store.read_object_raw(obj_id)?;
                 print_result(obj, obj_id, |obj| obj.content);
             }
             CatFileCommand::Check(obj_id) => {
-                let result = repo.obj_store.read_object(obj_id)?;
+                let result = repo.obj_store.read_object_raw(obj_id)?;
 
                 return match result {
                     Some(_) => Ok(()),
@@ -134,9 +134,9 @@ impl GitCommand for CatFileCommand {
                         Ok(obj) => println!(
                             "{} {} {}\n{}\n",
                             obj.id,
-                            obj.content.header.obj_type,
-                            obj.content.header.size,
-                            obj.content.content
+                            obj.object.header.obj_type,
+                            obj.object.header.size,
+                            obj.object.content
                         ),
                         Err(err) => eprint!("{}", err),
                     }

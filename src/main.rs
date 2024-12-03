@@ -20,6 +20,7 @@ mod ls_files;
 mod mv;
 mod restore;
 mod rm;
+mod switch;
 mod symbolic_ref;
 mod tag;
 mod update_ref;
@@ -43,6 +44,7 @@ use mv::cli::MvArgs;
 use repo::GitRepo;
 use restore::cli::RestoreArgs;
 use rm::cli::RmArgs;
+use switch::cli::SwitchArgs;
 use symbolic_ref::cli::SymbolicRefArgs;
 use tag::cli::TagArgs;
 use update_ref::cli::UpdateRefArgs;
@@ -269,6 +271,7 @@ enum CliCommand {
     UpdateRef(UpdateRefArgs),
     SymbolicRef(SymbolicRefArgs),
     Tag(TagArgs),
+    Switch(SwitchArgs),
 }
 
 fn load_repo_and_execute(cli: Cli) -> Result<(), RustGitError> {

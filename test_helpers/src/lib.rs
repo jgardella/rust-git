@@ -148,6 +148,15 @@ impl TestGitRepo {
         String::from(from_utf8(&cmd.stdout).unwrap().trim())
     }
 
+    pub fn branch(&self, branch_name: &str) {
+        Command::cargo_bin("rust-git")
+            .unwrap()
+            .arg("branch")
+            .arg(&branch_name)
+            .current_dir(self.temp_dir.path())
+            .unwrap();
+    }
+
     pub fn update_ref(&self, ref_name: &str, ref_value: &str) {
         Command::cargo_bin("rust-git")
             .unwrap()

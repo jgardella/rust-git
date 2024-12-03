@@ -2,7 +2,7 @@ use std::fs::create_dir_all;
 use std::path::{Path, PathBuf};
 
 use crate::error::RustGitError;
-use crate::object::{GitObject, GitObjectContents, GitObjectId};
+use crate::object::{GitObject, GitObjectContents, GitObjectId, GitObjectRaw};
 
 use flate2::read::ZlibDecoder;
 use flate2::{write::ZlibEncoder, Compression};
@@ -36,14 +36,14 @@ impl GitObjectStore {
 
     pub(crate) fn write_object<T>(&self, obj: T) -> Result<GitObjectId, RustGitError>
     where
-        T: TryInto<GitObject, Error = RustGitError>,
+        T: TryInto<GitObjectRaw, Error = RustGitError>,
     {
-        let obj: GitObject = obj.try_into()?;
+        let obj: GitObjectRaw = obj.try_into()?;
         self.write_raw_object(&obj)?;
         return Ok(obj.id);
     }
 
-    pub(crate) fn write_raw_object(&self, obj: &GitObject) -> Result<(), RustGitError> {
+    pub(crate) fn write_raw_object(&self, obj: &GitObjectRaw) -> Result<(), RustGitError> {
         // C Git has much more additional logic here, we just implement the core indexing logic to keep things simple:
         // - C Git implementation: https://github.com/git/git/blob/master/object-file.c#L2448
         // - C Git core indexing function: https://github.com/git/git/blob/master/object-file.c#L2312
@@ -54,7 +54,7 @@ impl GitObjectStore {
         let (obj_folder, obj_file_name) = self.loose_object_path(&obj.id);
 
         let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
-        encoder.write_all(obj.content.to_string().as_bytes())?;
+        encoder.write_all(obj.object.to_string().as_bytes())?;
         let compressed_bytes = encoder.finish()?;
 
         create_dir_all(&obj_folder)?;
@@ -65,10 +65,10 @@ impl GitObjectStore {
         Ok(())
     }
 
-    pub(crate) fn read_object(
+    pub(crate) fn read_object_raw(
         &self,
         obj_id: &GitObjectId,
-    ) -> Result<Option<GitObjectContents>, RustGitError> {
+    ) -> Result<Option<GitObjectRaw>, RustGitError> {
         let (obj_folder, obj_file_name) = self.loose_object_path(&obj_id);
         let obj_file_path = obj_folder.join(obj_file_name);
 
@@ -83,7 +83,20 @@ impl GitObjectStore {
         decoder.read_to_string(&mut decoded).unwrap();
         let obj = decoded.parse::<GitObjectContents>()?;
 
-        Ok(Some(obj))
+        Ok(Some(GitObjectRaw {
+            id: obj_id.clone(),
+            object: obj,
+        }))
+    }
+
+    pub(crate) fn read_object(
+        &self,
+        obj_id: &GitObjectId,
+    ) -> Result<Option<GitObject>, RustGitError> {
+        match self.read_object_raw(obj_id)? {
+            Some(obj_raw) => Ok(Some(GitObject::try_from(obj_raw)?)),
+            None => Ok(None),
+        }
     }
 
     /// Returns true if the provided object id exists in the repo.

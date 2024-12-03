@@ -12,6 +12,7 @@ use crate::{
     repo::RepoState,
     restore::command::RestoreCommand,
     rm::command::RmCommand,
+    switch::command::SwitchCommand,
     symbolic_ref::{cli::SymbolicRefArgs, command::SymbolicRefCommand},
     tag::command::TagCommand,
     update_ref::command::UpdateRefCommand,
@@ -53,6 +54,7 @@ pub(crate) fn from_cli(value: Cli) -> Result<Box<dyn GitCommand>, RustGitError> 
         }
         CliCommand::UpdateRef(args) => Ok(Box::new(UpdateRefCommand::new(args))),
         CliCommand::SymbolicRef(args) => Ok(Box::new(SymbolicRefCommand::new(args))),
+        CliCommand::Switch(args) => Ok(Box::new(SwitchCommand::new(args))),
         CliCommand::Tag(args) => {
             TagCommand::new(args).map(|res| Box::new(res) as Box<dyn GitCommand>)
         }

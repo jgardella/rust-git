@@ -26,11 +26,11 @@ impl GitCommand for RestoreCommand {
             let index_entries = repo.index.entry_range_by_path(&file_repo_path);
 
             for index_entry in index_entries {
-                let obj = repo.obj_store.read_object(&index_entry.name)?;
+                let obj = repo.obj_store.read_object_raw(&index_entry.name)?;
 
                 match obj {
                     Some(obj) => {
-                        repo.write_file(&index_entry.path_name, obj.content)?;
+                        repo.write_file(&index_entry.path_name, obj.object.content)?;
                         println!("restored {}", index_entry.path_name);
                     }
                     None => println!(

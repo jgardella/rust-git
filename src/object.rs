@@ -1,6 +1,7 @@
 use std::{fmt::Display, str::FromStr};
 
 use clap::ValueEnum;
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use sha1::{Digest, Sha1};
 
@@ -48,8 +49,8 @@ impl FromStr for GitObjectType {
 pub(crate) struct GitObjectId(String);
 
 impl GitObjectId {
-    pub(crate) fn new(s: String) -> Self {
-        GitObjectId(s)
+    pub(crate) fn new(s: impl Into<String>) -> Self {
+        GitObjectId(s.into())
     }
 
     pub(crate) fn folder_and_file_name(&self) -> (&str, &str) {
@@ -101,6 +102,175 @@ impl Display for GitObjectHeader {
     }
 }
 
+impl FromStr for GitBlobObject {
+    type Err = RustGitError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        todo!()
+    }
+}
+
+#[derive(Clone, PartialEq, ValueEnum)]
+pub(crate) enum GitCommitIdentityType {
+    Author,
+    Committer,
+}
+
+impl FromStr for GitCommitIdentityType {
+    type Err = RustGitError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "author" => Ok(Self::Author),
+            "committer" => Ok(Self::Committer),
+            other => Err(RustGitError::new(format!(
+                "invalid identity type '{other}'"
+            ))),
+        }
+    }
+}
+
+impl Display for GitCommitIdentityType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            Self::Author => "author",
+            Self::Committer => "committer",
+        };
+
+        write!(f, "{}", s)
+    }
+}
+
+pub(crate) struct GitCommitIdentity {
+    pub(crate) identity_type: GitCommitIdentityType,
+    pub(crate) name: String,
+    pub(crate) email: String,
+    pub(crate) timestamp: u128,
+}
+
+impl FromStr for GitCommitIdentity {
+    type Err = RustGitError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut c = s.chars();
+
+        let identity_type = c
+            .peeking_take_while(|c| *c != ' ')
+            .collect::<String>()
+            .trim_end()
+            .parse::<GitCommitIdentityType>()?;
+
+        let name = c
+            .peeking_take_while(|c| *c != '<')
+            .collect::<String>()
+            .trim()
+            .to_string();
+
+        let email = c
+            .peeking_take_while(|c| *c != ' ')
+            .collect::<String>()
+            .trim_start_matches('<')
+            .trim_end_matches('>')
+            .to_string();
+
+        let remaining = c.collect::<String>().trim_start().to_string();
+        let timestamp = u128::from_str(&remaining)?;
+
+        Ok(GitCommitIdentity {
+            identity_type,
+            name,
+            email,
+            timestamp,
+        })
+    }
+}
+
+impl FromStr for GitCommitObject {
+    type Err = RustGitError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut lines = s.lines().peekable();
+
+        let tree_line = lines.next();
+
+        let tree_id = match tree_line {
+            Some(tree_line) => {
+                if !tree_line.starts_with("tree ") {
+                    return Err(RustGitError::new("invalid commit object, missing tree"));
+                }
+                GitObjectId::new(tree_line.trim_start_matches("tree "))
+            }
+            None => {
+                return Err(RustGitError::new("invalid commit object, empty"));
+            }
+        };
+
+        let parents = lines
+            .peeking_take_while(|line| line.starts_with("parent "))
+            .map(|line| GitObjectId::new(line.trim_start_matches("parent ")))
+            .collect::<Vec<GitObjectId>>();
+
+        let author_line = lines.next();
+        let author = if let Some(author_line) = author_line {
+            author_line.parse::<GitCommitIdentity>()?
+        } else {
+            return Err(RustGitError::new("invalid commit object, missing author"));
+        };
+
+        if author.identity_type != GitCommitIdentityType::Author {
+            return Err(RustGitError::new(format!(
+                "invalid commit object, expected author but got {}",
+                author.identity_type
+            )));
+        }
+
+        let committer_line = lines.next();
+        let committer = if let Some(committer_line) = committer_line {
+            committer_line.parse::<GitCommitIdentity>()?
+        } else {
+            return Err(RustGitError::new(
+                "invalid commit object, missing committer",
+            ));
+        };
+
+        if committer.identity_type != GitCommitIdentityType::Committer {
+            return Err(RustGitError::new(format!(
+                "invalid commit object, expected committer but got {}",
+                author.identity_type
+            )));
+        }
+
+        lines.next();
+        lines.next();
+
+        let message = lines.collect::<Vec<&str>>().join("\n");
+
+        return Ok(GitCommitObject {
+            tree_id,
+            parents,
+            message,
+            author,
+            committer,
+        });
+    }
+}
+
+impl FromStr for GitTreeObject {
+    type Err = RustGitError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        todo!()
+    }
+}
+
+impl FromStr for GitTagObject {
+    type Err = RustGitError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        todo!()
+    }
+}
+
 impl FromStr for GitObjectHeader {
     type Err = RustGitError;
 
@@ -124,14 +294,42 @@ pub(crate) struct GitObjectContents {
 }
 
 #[derive(Debug, PartialEq)]
-pub(crate) struct GitObject {
+pub(crate) struct GitObjectRaw {
     pub(crate) id: GitObjectId,
-    pub(crate) content: GitObjectContents,
+    pub(crate) object: GitObjectContents,
 }
 
 impl Display for GitObjectContents {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}{}", self.header, self.content)
+    }
+}
+
+pub(crate) enum GitObject {
+    Blob(GitBlobObject),
+    Tree(GitTreeObject),
+    Commit(GitCommitObject),
+    Tag(GitTagObject),
+}
+
+impl TryFrom<GitObjectRaw> for GitObject {
+    type Error = RustGitError;
+
+    fn try_from(value: GitObjectRaw) -> Result<Self, Self::Error> {
+        match value.object.header.obj_type {
+            GitObjectType::Commit => Ok(GitObject::Commit(
+                value.object.content.parse::<GitCommitObject>()?,
+            )),
+            GitObjectType::Tree => Ok(GitObject::Tree(
+                value.object.content.parse::<GitTreeObject>()?,
+            )),
+            GitObjectType::Blob => Ok(GitObject::Blob(
+                value.object.content.parse::<GitBlobObject>()?,
+            )),
+            GitObjectType::Tag => Ok(GitObject::Tag(
+                value.object.content.parse::<GitTagObject>()?,
+            )),
+        }
     }
 }
 
@@ -163,7 +361,7 @@ impl FromStr for GitObjectContents {
     }
 }
 
-impl GitObject {
+impl GitObjectRaw {
     fn get_object_id(header: &GitObjectHeader, content: &str) -> GitObjectId {
         let mut hasher = Sha1::new();
         hasher.update_fn(&header.to_string());
@@ -171,7 +369,10 @@ impl GitObject {
         hasher.final_oid_fn()
     }
 
-    pub(crate) fn new(obj_type: GitObjectType, content: String) -> Result<GitObject, RustGitError> {
+    pub(crate) fn new(
+        obj_type: GitObjectType,
+        content: String,
+    ) -> Result<GitObjectRaw, RustGitError> {
         let header = GitObjectHeader {
             obj_type,
             size: content.len(),
@@ -188,7 +389,10 @@ impl GitObject {
         let id = Self::get_object_id(&header, &content);
         let content = GitObjectContents { header, content };
 
-        Ok(GitObject { id, content })
+        Ok(GitObjectRaw {
+            id,
+            object: content,
+        })
     }
 }
 
@@ -196,32 +400,42 @@ pub(crate) struct GitBlobObject {
     pub(crate) contents: String,
 }
 
-impl TryFrom<GitBlobObject> for GitObject {
+impl TryFrom<GitObject> for GitObjectRaw {
+    type Error = RustGitError;
+
+    fn try_from(value: GitObject) -> Result<Self, Self::Error> {
+        match value {
+            GitObject::Blob(git_blob_object) => GitObjectRaw::try_from(git_blob_object),
+            GitObject::Tree(git_tree_object) => GitObjectRaw::try_from(git_tree_object),
+            GitObject::Commit(git_commit_object) => GitObjectRaw::try_from(git_commit_object),
+            GitObject::Tag(git_tag_object) => GitObjectRaw::try_from(git_tag_object),
+        }
+    }
+}
+
+impl TryFrom<GitBlobObject> for GitObjectRaw {
     type Error = RustGitError;
 
     fn try_from(value: GitBlobObject) -> Result<Self, Self::Error> {
-        return GitObject::new(GitObjectType::Blob, value.contents);
+        return GitObjectRaw::new(GitObjectType::Blob, value.contents);
     }
 }
 
 pub(crate) struct GitCommitObject {
-    pub(crate) tree: GitObjectId,
+    pub(crate) tree_id: GitObjectId,
     pub(crate) parents: Vec<GitObjectId>,
     pub(crate) message: String,
-    pub(crate) author_name: String,
-    pub(crate) author_email: String,
-    pub(crate) committer_name: String,
-    pub(crate) committer_email: String,
-    pub(crate) timestamp: u128,
+    pub(crate) author: GitCommitIdentity,
+    pub(crate) committer: GitCommitIdentity,
 }
 
-impl TryFrom<GitCommitObject> for GitObject {
+impl TryFrom<GitCommitObject> for GitObjectRaw {
     type Error = RustGitError;
 
     fn try_from(value: GitCommitObject) -> Result<Self, Self::Error> {
         let mut content = String::new();
 
-        content.push_str(&format!("tree {}\n", value.tree));
+        content.push_str(&format!("tree {}\n", value.tree_id));
 
         for parent in value.parents {
             content.push_str(&format!("parent {parent}\n"));
@@ -229,15 +443,15 @@ impl TryFrom<GitCommitObject> for GitObject {
 
         content.push_str(&format!(
             "author {} <{}> {}\n",
-            value.author_name, value.author_email, value.timestamp
+            value.author.name, value.author.email, value.author.timestamp
         ));
         content.push_str(&format!(
             "committer {} <{}> {}\n\n",
-            value.committer_name, value.committer_email, value.timestamp
+            value.committer.name, value.committer.email, value.committer.timestamp
         ));
         content.push_str(&value.message);
 
-        return GitObject::new(GitObjectType::Commit, content);
+        return GitObjectRaw::new(GitObjectType::Commit, content);
     }
 }
 
@@ -248,7 +462,7 @@ pub(crate) struct GitTreeEntry {
     pub(crate) name: String,
 }
 
-impl TryFrom<GitTreeObject> for GitObject {
+impl TryFrom<GitTreeObject> for GitObjectRaw {
     type Error = RustGitError;
 
     fn try_from(value: GitTreeObject) -> Result<Self, Self::Error> {
@@ -262,7 +476,7 @@ impl TryFrom<GitTreeObject> for GitObject {
             ));
         }
 
-        return GitObject::new(GitObjectType::Tree, contents.join("\n"));
+        return GitObjectRaw::new(GitObjectType::Tree, contents.join("\n"));
     }
 }
 
@@ -280,7 +494,7 @@ pub(crate) struct GitTagObject {
     pub(crate) message: String,
 }
 
-impl TryFrom<GitTagObject> for GitObject {
+impl TryFrom<GitTagObject> for GitObjectRaw {
     type Error = RustGitError;
 
     fn try_from(value: GitTagObject) -> Result<Self, Self::Error> {
@@ -295,7 +509,7 @@ impl TryFrom<GitTagObject> for GitObject {
         ));
         contents.push_str(&value.message);
 
-        return GitObject::new(GitObjectType::Tag, contents);
+        return GitObjectRaw::new(GitObjectType::Tag, contents);
     }
 }
 
@@ -409,13 +623,13 @@ mod tests {
 
         #[test]
         fn should_create_new_blob_object() {
-            let obj_result = GitObject::new(GitObjectType::Blob, String::from("test"));
+            let obj_result = GitObjectRaw::new(GitObjectType::Blob, String::from("test"));
 
             assert_eq!(
                 obj_result,
-                Ok(GitObject {
+                Ok(GitObjectRaw {
                     id: GitObjectId(String::from("30d74d258442c7c65512eafab474568dd706c430")),
-                    content: GitObjectContents {
+                    object: GitObjectContents {
                         header: GitObjectHeader {
                             obj_type: GitObjectType::Blob,
                             size: 4

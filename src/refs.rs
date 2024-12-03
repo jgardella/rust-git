@@ -33,7 +33,10 @@ impl GitRefs {
         })
     }
 
-    pub(crate) fn try_read_ref(&self, ref_path: &Path) -> Result<Option<String>, RustGitError> {
+    pub(crate) fn try_read_ref_path(
+        &self,
+        ref_path: &Path,
+    ) -> Result<Option<String>, RustGitError> {
         if fs::exists(&ref_path)? {
             return Ok(Some(fs::read_to_string(&ref_path)?));
         }
@@ -53,7 +56,7 @@ impl GitRefs {
         let ref_path = self.refs_dir.join(git_ref);
         match old_value {
             Some(old_value) => {
-                let existing_value = self.try_read_ref(&ref_path)?;
+                let existing_value = self.try_read_ref_path(&ref_path)?;
                 let existing_value = existing_value.unwrap_or(String::new());
 
                 if old_value != existing_value {
@@ -117,7 +120,12 @@ impl GitRefs {
 
     pub(crate) fn try_read_tag(&self, tag_name: &str) -> Result<Option<String>, RustGitError> {
         let tag_path = self.tag_path(tag_name);
-        self.try_read_ref(&tag_path)
+        self.try_read_ref_path(&tag_path)
+    }
+
+    pub(crate) fn try_read_ref(&self, ref_name: &str) -> Result<Option<GitObjectId>, RustGitError> {
+        let ref_path = self.ref_path(ref_name);
+        Ok(self.try_read_ref_path(&ref_path)?.map(GitObjectId::new))
     }
 
     pub(crate) fn get_head_ref(
@@ -132,7 +140,7 @@ impl GitRefs {
 
             let ref_path = self.git_dir.join(head_ref_branch);
 
-            let ref_id = self.try_read_ref(&ref_path)?.map(GitObjectId::new);
+            let ref_id = self.try_read_ref_path(&ref_path)?.map(GitObjectId::new);
             Ok((Some(head_ref_branch.to_string()), ref_id))
         } else {
             Ok((None, None))
