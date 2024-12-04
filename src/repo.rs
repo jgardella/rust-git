@@ -7,8 +7,8 @@ use std::{env, fs};
 
 use crate::index::{GitIndex, GitIndexEntry};
 use crate::object::{
-    GitBlobObject, GitCommitIdentity, GitCommitIdentityType, GitCommitObject, GitObjectId,
-    GitObjectRaw, GitObjectType, GitTagObject, GitTreeEntry, GitTreeObject,
+    GitBlobObject, GitCommitObject, GitIdentity, GitIdentityType, GitObjectId, GitObjectRaw,
+    GitObjectType, GitTagObject, GitTreeEntry, GitTreeEntryType, GitTreeObject,
 };
 use crate::object_store::GitObjectStore;
 use crate::refs::GitRefs;
@@ -327,7 +327,7 @@ impl GitRepo {
                 self.write_index_as_tree_internal(&entries, offset + name.len() + 1)?;
             let entry = GitTreeEntry {
                 mode: "040000".to_string(),
-                entry_type: "tree".to_string(),
+                entry_type: GitTreeEntryType::Tree,
                 obj_id: subtree_id,
                 name,
             };
@@ -338,7 +338,7 @@ impl GitRepo {
             let name = object.path_name.as_string()[offset..].to_string();
             let entry = GitTreeEntry {
                 mode: object.mode.to_string(),
-                entry_type: "blob".to_string(),
+                entry_type: GitTreeEntryType::Blob,
                 obj_id: object.name.clone(),
                 name,
             };
@@ -404,14 +404,14 @@ impl GitRepo {
                     tree_id: tree.clone(),
                     parents: parents.clone(),
                     message: message.to_string(),
-                    author: GitCommitIdentity {
-                        identity_type: GitCommitIdentityType::Author,
+                    author: GitIdentity {
+                        identity_type: GitIdentityType::Author,
                         name: user_name.to_string(),
                         email: user_email.to_string(),
                         timestamp: timestamp,
                     },
-                    committer: GitCommitIdentity {
-                        identity_type: GitCommitIdentityType::Committer,
+                    committer: GitIdentity {
+                        identity_type: GitIdentityType::Committer,
                         name: user_name.to_string(),
                         email: user_email.to_string(),
                         timestamp: timestamp,
@@ -458,9 +458,12 @@ impl GitRepo {
                         tag_name: tag_name.to_string(),
                         object_id: object_id.clone(),
                         object_type: target_object.object.header.obj_type,
-                        tagger_name: user_name.to_string(),
-                        tagger_email: user_email.to_string(),
-                        timestamp,
+                        tagger: GitIdentity {
+                            identity_type: GitIdentityType::Tagger,
+                            name: user_name.to_string(),
+                            email: user_email.to_string(),
+                            timestamp,
+                        },
                         message: message.to_string(),
                     };
 
