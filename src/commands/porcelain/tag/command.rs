@@ -56,7 +56,7 @@ impl GitCommand for TagCommand {
 
         match self {
             TagCommand::CreateTag(create_cmd) => {
-                if !create_cmd.force && repo.read_tag(&create_cmd.tag_name)?.is_some() {
+                if !create_cmd.force && repo.refs.try_read_tag(&create_cmd.tag_name)?.is_some() {
                     return Err(RustGitError::new(format!(
                         "cannot overwrite existing tag {}",
                         create_cmd.tag_name
@@ -66,7 +66,7 @@ impl GitCommand for TagCommand {
                 let object_id = if let Some(object_id) = &create_cmd.object_id {
                     object_id
                 } else {
-                    if let (_, Some(head_ref)) = repo.get_head_ref()? {
+                    if let (_, Some(head_ref)) = repo.refs.get_head_ref()? {
                         &head_ref.clone()
                     } else {
                         return Err(RustGitError::new("no HEAD ref"));
@@ -80,12 +80,12 @@ impl GitCommand for TagCommand {
                 return repo.create_lightweight_tag(&create_cmd.tag_name, &object_id);
             }
             TagCommand::ListTags() => {
-                let tags = repo.list_tags()?;
+                let tags = repo.refs.list_tags()?;
                 for tag in tags {
                     println!("{}", tag)
                 }
             }
-            TagCommand::DeleteTag(delete_cmd) => repo.delete_tag(&delete_cmd.tag_name)?,
+            TagCommand::DeleteTag(delete_cmd) => repo.refs.delete_tag(&delete_cmd.tag_name)?,
         }
 
         Ok(())

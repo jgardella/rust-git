@@ -63,7 +63,7 @@ impl GitCommand for SwitchCommand {
     fn execute(&self, repo_state: RepoState) -> Result<(), RustGitError> {
         let repo = repo_state.try_get()?;
 
-        let commit_id = if let Some(commit_id) = repo.get_ref(&self.branch)? {
+        let commit_id = if let Some(commit_id) = repo.refs.try_read_ref(&self.branch)? {
             commit_id
         } else {
             return Err(RustGitError::new(format!("no ref {}", self.branch)));
@@ -82,6 +82,8 @@ impl GitCommand for SwitchCommand {
 
         // Load tree for commit, and recursively traverse tree, adding objects to working directory.
         // TODO: check for overwriting existing changes in working directory
+        // Check files to write against modified files in working directory/index.
+        // implement diff first?
         let root_tree_obj =
             if let Some(GitObject::Tree(obj)) = repo.obj_store.read_object(&commit_obj.tree_id)? {
                 obj
@@ -94,7 +96,8 @@ impl GitCommand for SwitchCommand {
         self.write_tree_obj(&repo.working_dir, &repo, &root_tree_obj)?;
 
         // Point HEAD to provided branch.
-        repo.update_symbolic_ref("HEAD", &format!("refs/heads/{}", self.branch))?;
+        repo.refs
+            .update_symbolic_ref("HEAD", &format!("refs/heads/{}", self.branch))?;
 
         return Ok(());
     }

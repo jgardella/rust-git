@@ -55,26 +55,30 @@ impl GitCommand for BranchCommand {
 
         match self {
             BranchCommand::CreateBranch(create_cmd) => {
-                if let (_, Some(head_ref)) = repo.get_head_ref()? {
-                    return repo.create_ref(&create_cmd.branch_name, &head_ref);
+                if let (_, Some(head_ref)) = repo.refs.get_head_ref()? {
+                    return repo.refs.create_ref(&create_cmd.branch_name, &head_ref);
                 } else {
                     return Err(RustGitError::new("failed to load HEAD"));
                 }
             }
             BranchCommand::RenameBranch(rename_cmd) => {
-                if let (Some(old_branch_name), _) = repo.get_head_ref()? {
-                    return repo.rename_ref(&old_branch_name, &rename_cmd.new_branch_name);
+                if let (Some(old_branch_name), _) = repo.refs.get_head_ref()? {
+                    return repo
+                        .refs
+                        .rename_ref(&old_branch_name, &rename_cmd.new_branch_name);
                 } else {
                     return Err(RustGitError::new("failed to load HEAD"));
                 }
             }
             BranchCommand::ListBranches() => {
-                let refs = repo.list_refs()?;
+                let refs = repo.refs.list_refs()?;
                 for ref_value in refs {
                     println!("{}", ref_value)
                 }
             }
-            BranchCommand::DeleteBranch(delete_cmd) => repo.delete_ref(&delete_cmd.branch_name)?,
+            BranchCommand::DeleteBranch(delete_cmd) => {
+                repo.refs.delete_ref(&delete_cmd.branch_name)?
+            }
         }
 
         Ok(())

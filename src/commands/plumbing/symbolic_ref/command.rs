@@ -53,7 +53,7 @@ impl GitCommand for SymbolicRefCommand {
 
         match self {
             SymbolicRefCommand::ReadSymbolicRef(read_cmd) => {
-                if let Some(ref_value) = repo.get_symbolic_ref(&read_cmd.ref_name)? {
+                if let Some(ref_value) = repo.refs.get_symbolic_ref(&read_cmd.ref_name)? {
                     if !ref_value.starts_with("ref: ") {
                         if read_cmd.quiet {
                             return Err(RustGitError::new(""));
@@ -75,11 +75,12 @@ impl GitCommand for SymbolicRefCommand {
                 }
             }
             SymbolicRefCommand::UpdateSymbolicRef(update_cmd) => {
-                repo.update_symbolic_ref(&update_cmd.ref_name, &update_cmd.new_value)?;
+                repo.refs
+                    .update_symbolic_ref(&update_cmd.ref_name, &update_cmd.new_value)?;
             }
             SymbolicRefCommand::DeleteSymbolicRef(delete_cmd) => {
                 // TODO: respect quiet flag for deletions
-                repo.delete_symbolic_ref(&delete_cmd.ref_name)?;
+                repo.refs.delete_symbolic_ref(&delete_cmd.ref_name)?;
             }
         }
 

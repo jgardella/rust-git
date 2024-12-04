@@ -258,10 +258,6 @@ impl GitRepo {
         Ok(fs::remove_file(path_in_repo)?)
     }
 
-    pub(crate) fn get_ref(&self, git_ref: &str) -> Result<Option<GitObjectId>, RustGitError> {
-        self.refs.try_read_ref(git_ref)
-    }
-
     pub(crate) fn update_ref(
         &self,
         git_ref: &str,
@@ -425,26 +421,6 @@ impl GitRepo {
         }
     }
 
-    pub(crate) fn get_symbolic_ref(&self, ref_name: &str) -> Result<Option<String>, RustGitError> {
-        self.refs.get_symbolic_ref(ref_name)
-    }
-
-    pub(crate) fn update_symbolic_ref(
-        &self,
-        ref_name: &str,
-        new_value: &str,
-    ) -> Result<(), RustGitError> {
-        self.refs.update_symbolic_ref(ref_name, new_value)
-    }
-
-    pub(crate) fn delete_symbolic_ref(&self, ref_name: &str) -> Result<(), RustGitError> {
-        self.refs.delete_symbolic_ref(ref_name)
-    }
-
-    pub(crate) fn read_tag(&self, tag_name: &str) -> Result<Option<String>, RustGitError> {
-        self.refs.try_read_tag(tag_name)
-    }
-
     pub(crate) fn create_annotated_tag(
         &self,
         tag_name: &str,
@@ -484,43 +460,5 @@ impl GitRepo {
         object_id: &GitObjectId,
     ) -> Result<(), RustGitError> {
         self.refs.create_tag(tag_name, object_id)
-    }
-
-    pub(crate) fn delete_tag(&self, tag_name: &str) -> Result<(), RustGitError> {
-        self.refs.delete_tag(tag_name)
-    }
-
-    pub(crate) fn list_tags(&self) -> Result<Vec<String>, RustGitError> {
-        self.refs.list_tags()
-    }
-
-    pub(crate) fn create_ref(
-        &self,
-        ref_name: &str,
-        object_id: &GitObjectId,
-    ) -> Result<(), RustGitError> {
-        self.refs.create_ref(ref_name, object_id)
-    }
-
-    pub(crate) fn list_refs(&self) -> Result<Vec<String>, RustGitError> {
-        self.refs.list_refs()
-    }
-
-    pub(crate) fn rename_ref(
-        &self,
-        old_ref_name: &str,
-        new_ref_name: &str,
-    ) -> Result<(), RustGitError> {
-        self.refs.rename_ref(old_ref_name, new_ref_name)
-    }
-
-    pub(crate) fn delete_ref(&self, ref_name: &str) -> Result<(), RustGitError> {
-        self.refs.delete_ref(ref_name)
-    }
-
-    pub(crate) fn get_head_ref(
-        &self,
-    ) -> Result<(Option<String>, Option<GitObjectId>), RustGitError> {
-        self.refs.get_head_ref()
     }
 }

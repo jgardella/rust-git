@@ -25,7 +25,7 @@ impl GitCommand for CommitCommand {
         // Write index as tree.
         let tree_id = repo.write_index_as_tree()?;
 
-        let (current_head_branch, current_head_ref) = repo.get_head_ref()?;
+        let (current_head_branch, current_head_ref) = repo.refs.get_head_ref()?;
 
         let current_head_branch = if let Some(current_head_branch) = current_head_branch {
             current_head_branch
