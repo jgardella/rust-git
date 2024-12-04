@@ -1,24 +1,20 @@
-use crate::{
-    add::command::AddCommand,
-    branch::command::BranchCommand,
-    cat_file::command::CatFileCommand,
-    commit::command::CommitCommand,
-    commit_tree::command::CommitTreeCommand,
-    error::RustGitError,
-    hash_object::command::HashObjectCommand,
-    init::command::InitCommand,
-    ls_files::command::LsFilesCommand,
-    mv::command::MvCommand,
-    repo::RepoState,
-    restore::command::RestoreCommand,
-    rm::command::RmCommand,
-    switch::command::SwitchCommand,
-    symbolic_ref::{cli::SymbolicRefArgs, command::SymbolicRefCommand},
-    tag::command::TagCommand,
-    update_ref::command::UpdateRefCommand,
-    write_tree::command::WriteTreeCommand,
-    Cli, CliCommand,
-};
+use crate::commands::plumbing::cat_file::command::CatFileCommand;
+use crate::commands::plumbing::commit_tree::command::CommitTreeCommand;
+use crate::commands::plumbing::hash_object::command::HashObjectCommand;
+use crate::commands::plumbing::ls_files::command::LsFilesCommand;
+use crate::commands::plumbing::symbolic_ref::command::SymbolicRefCommand;
+use crate::commands::plumbing::update_ref::command::UpdateRefCommand;
+use crate::commands::plumbing::write_tree::command::WriteTreeCommand;
+use crate::commands::porcelain::add::command::AddCommand;
+use crate::commands::porcelain::branch::command::BranchCommand;
+use crate::commands::porcelain::commit::command::CommitCommand;
+use crate::commands::porcelain::init::command::InitCommand;
+use crate::commands::porcelain::mv::command::MvCommand;
+use crate::commands::porcelain::restore::command::RestoreCommand;
+use crate::commands::porcelain::rm::command::RmCommand;
+use crate::commands::porcelain::switch::command::SwitchCommand;
+use crate::commands::porcelain::tag::command::TagCommand;
+use crate::{error::RustGitError, repo::RepoState, Cli, CliCommand};
 
 pub(crate) trait GitCommand {
     fn execute(&self, repo_state: RepoState) -> Result<(), RustGitError>;

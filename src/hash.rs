@@ -1,4 +1,4 @@
-use crate::{init::cli::HashAlgorithm, object::GitObjectId};
+use crate::{commands::porcelain::init::cli::HashAlgorithm, object::GitObjectId};
 use sha1::{Digest, Sha1};
 
 pub(crate) trait Hasher {

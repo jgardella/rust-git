@@ -9,46 +9,31 @@ mod options;
 mod refs;
 mod repo;
 
-mod add;
-mod branch;
-mod cat_file;
-mod commit;
-mod commit_tree;
-mod hash_object;
-mod init;
-mod ls_files;
-mod mv;
-mod restore;
-mod rm;
-mod switch;
-mod symbolic_ref;
-mod tag;
-mod update_ref;
-mod write_tree;
+mod commands;
 
 use std::{path::PathBuf, process::ExitCode};
 
-use add::cli::AddArgs;
-use branch::cli::BranchArgs;
-use cat_file::cli::CatFileArgs;
 use clap::{Parser, Subcommand};
+use commands::plumbing::cat_file::cli::CatFileArgs;
+use commands::porcelain::add::cli::AddArgs;
+use commands::porcelain::branch::cli::BranchArgs;
 
 use command::from_cli;
-use commit::cli::CommitArgs;
-use commit_tree::cli::CommitTreeArgs;
+use commands::plumbing::commit_tree::cli::CommitTreeArgs;
+use commands::plumbing::hash_object::cli::HashObjectArgs;
+use commands::plumbing::ls_files::cli::LsFilesArgs;
+use commands::plumbing::symbolic_ref::cli::SymbolicRefArgs;
+use commands::plumbing::update_ref::cli::UpdateRefArgs;
+use commands::plumbing::write_tree::cli::WriteTreeArgs;
+use commands::porcelain::commit::cli::CommitArgs;
+use commands::porcelain::init::cli::InitArgs;
+use commands::porcelain::mv::cli::MvArgs;
+use commands::porcelain::restore::cli::RestoreArgs;
+use commands::porcelain::rm::cli::RmArgs;
+use commands::porcelain::switch::cli::SwitchArgs;
+use commands::porcelain::tag::cli::TagArgs;
 use error::RustGitError;
-use hash_object::cli::HashObjectArgs;
-use init::cli::InitArgs;
-use ls_files::cli::LsFilesArgs;
-use mv::cli::MvArgs;
 use repo::GitRepo;
-use restore::cli::RestoreArgs;
-use rm::cli::RmArgs;
-use switch::cli::SwitchArgs;
-use symbolic_ref::cli::SymbolicRefArgs;
-use tag::cli::TagArgs;
-use update_ref::cli::UpdateRefArgs;
-use write_tree::cli::WriteTreeArgs;
 
 fn parse_config_override(s: &str) -> Result<(String, String), String> {
     match s.find('=') {

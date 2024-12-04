@@ -6,7 +6,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::{error::RustGitError, init::cli::HashAlgorithm};
+use crate::{commands::porcelain::init::cli::HashAlgorithm, error::RustGitError};
 
 const CONFIG_FILE_NAME: &str = "config";
 

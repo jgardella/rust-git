@@ -13,7 +13,7 @@ work tree), and optionally writes the resulting object into the object database.
 ")]
 pub(crate) struct HashObjectArgs {
     /// Specify the type (default: "blob").
-    #[arg(short='t', default_value="blob", value_name="type")]
+    #[arg(short = 't', default_value = "blob", value_name = "type")]
     pub object_type: GitObjectType,
 
     /// Actually write the object into the object database.
@@ -25,14 +25,19 @@ pub(crate) struct HashObjectArgs {
     pub stdin: bool,
 
     /// Read file names from the standard input, one per line, instead of from the command-line.
-    #[arg(long, conflicts_with="stdin", conflicts_with="path", conflicts_with="files")]
+    #[arg(
+        long,
+        conflicts_with = "stdin",
+        conflicts_with = "path",
+        conflicts_with = "files"
+    )]
     pub stdin_paths: bool,
 
     /// Hash object as it were located at the given path. The location of file does not directly influence on the hash value, but path
     /// is used to determine what Git filters should be applied to the object before it can be placed to the object database, and, as
     /// result of applying filters, the actual blob put into the object database may differ from the given file. This option is mainly
     /// useful for hashing temporary files located outside of the working directory or files read from stdin.
-    #[arg(long, conflicts_with="no_filters")]
+    #[arg(long, conflicts_with = "no_filters")]
     pub path: Option<PathBuf>,
 
     /// Hash the contents as is, ignoring any input filter that would have been chosen by the attributes mechanism, including the

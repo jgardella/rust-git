@@ -1,7 +1,7 @@
 use clap::Args;
 
 #[derive(Args, Debug)]
-#[group(multiple=false)]
+#[group(multiple = false)]
 pub(crate) struct CatFileMode {
     /// Instead of the content, show the object type identified by <object>.
     #[arg(short('t'))]
@@ -41,18 +41,16 @@ pub(crate) struct CatFileArgs {
     #[command(flatten)]
     pub(crate) mode: CatFileMode,
 
-
     // TODO: We are parsing the type and object as a vector; I couldn't find a better way to
     // represent the way C git handles the cat-file command using Clap.
-
-    /// <type> 
-    /// 
+    /// <type>
+    ///
     /// Typically this matches the real type of <object> but asking for a type that can trivially be dereferenced from
     /// the given <object> is also permitted. An example is to ask for a "tree" with <object> being a commit object
     /// that contains it, or to ask for a "blob" with <object> being a tag object that points at it.
-    /// 
+    ///
     /// <object>
-    /// 
+    ///
     /// The name of the object to show. For a more complete list of ways to spell object names, see the "SPECIFYING
     /// REVISIONS" section in gitrevisions(7).
     #[arg(value_names=["type", "object"], num_args=0..3)]
