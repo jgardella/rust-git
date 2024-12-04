@@ -4,7 +4,7 @@ use crate::error::RustGitError;
 use clap::ValueEnum;
 use itertools::Itertools;
 
-#[derive(Clone, PartialEq, ValueEnum)]
+#[derive(Clone, Debug, PartialEq, ValueEnum)]
 pub(crate) enum GitIdentityType {
     Author,
     Committer,
@@ -38,6 +38,7 @@ impl Display for GitIdentityType {
     }
 }
 
+#[derive(Debug, PartialEq)]
 pub(crate) struct GitIdentity {
     pub(crate) identity_type: GitIdentityType,
     pub(crate) name: String,

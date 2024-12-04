@@ -8,6 +8,7 @@ use super::{
     raw::{GitObjectRaw, GitObjectType},
 };
 
+#[derive(Debug, PartialEq)]
 pub(crate) struct GitTagObject {
     pub(crate) tag_name: String,
     pub(crate) object_id: GitObjectId,
@@ -70,7 +71,6 @@ impl FromStr for GitTagObject {
         };
 
         lines.next();
-        lines.next();
 
         let message = lines.collect::<String>().to_string();
 
@@ -110,5 +110,31 @@ impl TryFrom<GitTagObject> for GitObjectRaw {
 
     fn try_from(value: GitTagObject) -> Result<Self, Self::Error> {
         GitObjectRaw::new(GitObjectType::Tag, value.to_string())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::object::GitTagObject;
+
+    use super::GitObjectId;
+
+    #[test]
+    fn should_roundtrip() {
+        let tag_obj = GitTagObject {
+            tag_name: String::from("v1.0"),
+            object_id: GitObjectId::new("test-obj-id"),
+            object_type: super::GitObjectType::Blob,
+            tagger: super::GitIdentity {
+                identity_type: crate::object::identity::GitIdentityType::Tagger,
+                name: String::from("Test Name"),
+                email: String::from("test@email.com"),
+                timestamp: 12345,
+            },
+            message: String::from("my tag message"),
+        };
+
+        let roundtrip_obj = tag_obj.to_string().parse::<GitTagObject>();
+        assert_eq!(Ok(tag_obj), roundtrip_obj);
     }
 }
