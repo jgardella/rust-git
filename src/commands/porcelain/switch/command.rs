@@ -2,7 +2,7 @@ use std::{fs, path::Path};
 
 use crate::{
     command::GitCommand,
-    object::{GitBlobObject, GitObject, GitTreeEntryType, GitTreeObject},
+    object::{blob::GitBlobObject, tree::GitTreeEntryType, tree::GitTreeObject, GitObject},
     repo::{GitRepo, RepoState},
     RustGitError,
 };

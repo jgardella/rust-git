@@ -1,4 +1,4 @@
-use crate::{command::GitCommand, object::GitObjectId, repo::RepoState, RustGitError};
+use crate::{command::GitCommand, object::id::GitObjectId, repo::RepoState, RustGitError};
 
 use super::cli::TagArgs;
 

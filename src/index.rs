@@ -1,4 +1,4 @@
-use crate::{error::RustGitError, hash::Hasher, object::GitObjectId, repo::GitRepoPath};
+use crate::{error::RustGitError, hash::Hasher, object::id::GitObjectId, repo::GitRepoPath};
 use sha1::{Digest, Sha1};
 /// All binary numbers are in network byte order.
 use std::{
@@ -605,7 +605,7 @@ impl GitIndex {
 
 #[cfg(test)]
 mod tests {
-    use crate::{object::GitObjectId, repo::GitRepoPath};
+    use crate::{object::id::GitObjectId, repo::GitRepoPath};
 
     use super::{
         GitIndex, GitIndexEntry, GitIndexFlags, GitIndexMode, GitIndexStageFlag, GitIndexTimestamp,
@@ -704,7 +704,7 @@ mod tests {
                     GitIndex, GitIndexEntry, GitIndexFlags, GitIndexHeader, GitIndexMode,
                     GitIndexStageFlag, GitIndexTimestamp, GitIndexVersion,
                 },
-                object::GitObjectId,
+                object::id::GitObjectId,
                 repo::GitRepoPath,
             };
 

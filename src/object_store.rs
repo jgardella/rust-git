@@ -2,7 +2,7 @@ use std::fs::create_dir_all;
 use std::path::{Path, PathBuf};
 
 use crate::error::RustGitError;
-use crate::object::{GitObject, GitObjectContents, GitObjectId, GitObjectRaw};
+use crate::object::{id::GitObjectId, raw::GitObjectContents, raw::GitObjectRaw, GitObject};
 
 use flate2::read::ZlibDecoder;
 use flate2::{write::ZlibEncoder, Compression};

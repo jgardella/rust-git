@@ -2,7 +2,7 @@ use std::io::{self, BufRead};
 
 use crate::{
     command::GitCommand,
-    object::{GitObjectContents, GitObjectId, GitObjectRaw, GitObjectType},
+    object::{id::GitObjectId, raw::GitObjectContents, raw::GitObjectRaw, raw::GitObjectType},
     repo::{GitRepo, RepoState},
     RustGitError,
 };

@@ -3,7 +3,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::{error::RustGitError, object::GitObjectId};
+use crate::{error::RustGitError, object::id::GitObjectId};
 
 const REFS_FOLDER: &str = "refs";
 const HEADS_FOLDER: &str = "heads";

@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use clap::Args;
 
-use crate::object::GitObjectType;
+use crate::object::raw::GitObjectType;
 
 #[derive(Args, Debug)]
 #[command(about = "Compute object ID and optionally creates a blob from a file")]

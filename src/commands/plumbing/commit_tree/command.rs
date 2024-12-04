@@ -1,6 +1,4 @@
-use std::str::FromStr;
-
-use crate::{command::GitCommand, object::GitObjectId, repo::RepoState, RustGitError};
+use crate::{command::GitCommand, object::id::GitObjectId, repo::RepoState, RustGitError};
 
 use super::cli::CommitTreeArgs;
 
@@ -12,11 +10,11 @@ pub(crate) struct CommitTreeCommand {
 
 impl CommitTreeCommand {
     pub fn new(args: CommitTreeArgs) -> Result<CommitTreeCommand, RustGitError> {
-        let tree = GitObjectId::from_str(&args.tree)?;
+        let tree = args.tree.parse::<GitObjectId>()?;
         let parents = args
             .parents
             .iter()
-            .map(|parent| GitObjectId::from_str(&parent))
+            .map(|parent| parent.parse::<GitObjectId>())
             .collect::<Result<Vec<GitObjectId>, RustGitError>>()?;
 
         let message = args.messages.join("\n");

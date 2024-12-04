@@ -7,8 +7,9 @@ use std::{env, fs};
 
 use crate::index::{GitIndex, GitIndexEntry};
 use crate::object::{
-    GitBlobObject, GitCommitObject, GitIdentity, GitIdentityType, GitObjectId, GitObjectRaw,
-    GitObjectType, GitTagObject, GitTreeEntry, GitTreeEntryType, GitTreeObject,
+    blob::GitBlobObject, commit::GitCommitObject, id::GitObjectId, identity::GitIdentity,
+    identity::GitIdentityType, raw::GitObjectRaw, raw::GitObjectType, tag::GitTagObject,
+    tree::GitTreeEntry, tree::GitTreeEntryType, tree::GitTreeObject,
 };
 use crate::object_store::GitObjectStore;
 use crate::refs::GitRefs;

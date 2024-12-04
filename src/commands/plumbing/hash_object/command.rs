@@ -1,4 +1,4 @@
-use crate::{command::GitCommand, object::GitObjectRaw, repo::RepoState, RustGitError};
+use crate::{command::GitCommand, repo::RepoState, RustGitError};
 use std::{
     fs::File,
     io::{self, BufRead, BufReader},
