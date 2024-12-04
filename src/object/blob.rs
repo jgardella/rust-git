@@ -4,6 +4,7 @@ use crate::error::RustGitError;
 
 use super::raw::{GitObjectRaw, GitObjectType};
 
+#[derive(Debug, PartialEq)]
 pub(crate) struct GitBlobObject {
     pub(crate) contents: String,
 }
@@ -29,5 +30,20 @@ impl TryFrom<GitBlobObject> for GitObjectRaw {
 
     fn try_from(value: GitBlobObject) -> Result<Self, Self::Error> {
         return GitObjectRaw::new(GitObjectType::Blob, value.to_string());
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::object::GitBlobObject;
+
+    #[test]
+    fn should_roundtrip() {
+        let blob_obj = GitBlobObject {
+            contents: String::from("my test file contents"),
+        };
+
+        let roundtrip_obj = blob_obj.to_string().parse::<GitBlobObject>();
+        assert_eq!(Ok(blob_obj), roundtrip_obj);
     }
 }

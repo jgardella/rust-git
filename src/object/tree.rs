@@ -49,11 +49,13 @@ impl FromStr for GitTreeObject {
     }
 }
 
+#[derive(Debug, PartialEq)]
 pub(crate) enum GitTreeEntryType {
     Tree,
     Blob,
 }
 
+#[derive(Debug, PartialEq)]
 pub(crate) struct GitTreeEntry {
     pub(crate) mode: String,
     pub(crate) entry_type: GitTreeEntryType,
@@ -108,6 +110,34 @@ impl TryFrom<GitTreeObject> for GitObjectRaw {
     }
 }
 
+#[derive(Debug, PartialEq)]
 pub(crate) struct GitTreeObject {
     pub(crate) entries: Vec<GitTreeEntry>,
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::object::{id::GitObjectId, tree::GitTreeEntry, GitTreeObject};
+
+    #[test]
+    fn should_roundtrip() {
+        let entries = vec![
+            GitTreeEntry {
+                mode: String::from("00400"),
+                entry_type: crate::object::tree::GitTreeEntryType::Tree,
+                obj_id: GitObjectId::new("tree-obj-id"),
+                name: String::from("test_dir"),
+            },
+            GitTreeEntry {
+                mode: String::from("123456"),
+                entry_type: crate::object::tree::GitTreeEntryType::Blob,
+                obj_id: GitObjectId::new("blob-obj-id"),
+                name: String::from("test.txt"),
+            },
+        ];
+        let tree_obj = GitTreeObject { entries };
+
+        let roundtrip_obj = tree_obj.to_string().parse::<GitTreeObject>();
+        assert_eq!(Ok(tree_obj), roundtrip_obj);
+    }
 }

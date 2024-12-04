@@ -10,6 +10,7 @@ use super::{
     raw::{GitObjectRaw, GitObjectType},
 };
 
+#[derive(Debug, PartialEq)]
 pub(crate) struct GitCommitObject {
     pub(crate) tree_id: GitObjectId,
     pub(crate) parents: Vec<GitObjectId>,
@@ -74,7 +75,6 @@ impl FromStr for GitCommitObject {
         }
 
         lines.next();
-        lines.next();
 
         let message = lines.collect::<Vec<&str>>().join("\n");
 
@@ -117,5 +117,37 @@ impl TryFrom<GitCommitObject> for GitObjectRaw {
 
     fn try_from(value: GitCommitObject) -> Result<Self, Self::Error> {
         GitObjectRaw::new(GitObjectType::Commit, value.to_string())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::object::{commit::GitIdentity, id::GitObjectId, GitCommitObject};
+
+    #[test]
+    fn should_roundtrip() {
+        let commit_obj = GitCommitObject {
+            tree_id: GitObjectId::new("test-obj-id"),
+            parents: vec![
+                GitObjectId::new("parent-id-1"),
+                GitObjectId::new("parent-id-2"),
+            ],
+            message: String::from("my commit message"),
+            author: GitIdentity {
+                identity_type: crate::object::identity::GitIdentityType::Author,
+                name: String::from("Test Author Name"),
+                email: String::from("test_author@email.com"),
+                timestamp: 12345,
+            },
+            committer: GitIdentity {
+                identity_type: crate::object::identity::GitIdentityType::Committer,
+                name: String::from("Test Committer Name"),
+                email: String::from("test_committer@email.com"),
+                timestamp: 23456,
+            },
+        };
+
+        let roundtrip_obj = commit_obj.to_string().parse::<GitCommitObject>();
+        assert_eq!(Ok(commit_obj), roundtrip_obj);
     }
 }
